@@ -55,7 +55,9 @@ run ()
 
     bprog="$(basename "$prog" .exe)"
     bdwg="$(basename "$dwg" .dwg)"
-    log="$bdwg-$bprog.log"
+    bprog1=$(echo "$bprog" | sed -e's,^dwg2,,')
+    bprog1=$(echo "$bprog1" | sed -e's,^dwg,,')
+    log="$bdwg-$bprog1.log"
     arg="${DATADIR}/$dwg.dwg"
     rm "./$log" 2>/dev/null
     case $bprog in
@@ -202,6 +204,7 @@ for prog in $PROGS ; do
         run "$prog" "$dwg"
     done
 done
+
 # dwgread converts to json here, but has no --as yet
 for prog in dwgwrite dwgrewrite dxf2dwg dwg2dxf dxfwrite ; do
     for dwg in $DATA; do
@@ -210,6 +213,7 @@ for prog in dwgwrite dwgrewrite dxf2dwg dwg2dxf dxfwrite ; do
         done
     done
 done
+
 case $PROGS in
   *dwggrep*)
     echo "@LTEXEC@ ./dwggrep -i -c tekst ${DATADIR}/example_*.dwg"
