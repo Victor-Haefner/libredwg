@@ -45,6 +45,11 @@
 // #define LOGLEVEL_FOO ..     //if more codes are necessary
 #define DWG_LOGLEVEL_ALL 9
 
+#ifdef DWG_LOGLEVEL
+#  undef DWG_LOGLEVEL
+#endif
+#define DWG_LOGLEVEL DWG_LOGLEVEL_ERROR // FUCKING LOGS!!
+
 #ifndef DWG_LOGLEVEL
 #  define DWG_LOGLEVEL DWG_LOGLEVEL_ERROR
 #endif

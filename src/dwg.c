@@ -911,6 +911,10 @@ dwg_model_space_object (Dwg_Data *dwg)
 EXPORT Dwg_Object *
 get_first_owned_entity (const Dwg_Object *hdr)
 {
+  if (!hdr || !hdr->parent) {
+      LOG_ERROR ("Invalid BLOCK_HEADER");
+      return NULL;
+    }
   unsigned int version = hdr->parent->header.version;
   Dwg_Object_BLOCK_HEADER *_hdr = hdr->tio.object->tio.BLOCK_HEADER;
   if (hdr->type != DWG_TYPE_BLOCK_HEADER)
