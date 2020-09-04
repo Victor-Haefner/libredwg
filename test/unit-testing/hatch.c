@@ -4,7 +4,7 @@
 void
 api_process (dwg_object *obj)
 {
-  int error;
+  int error, isnew;
   BITCODE_BL i;
   BITCODE_BL is_gradient_fill;
   BITCODE_BL reserved;
@@ -13,12 +13,12 @@ api_process (dwg_object *obj)
   BITCODE_BL single_color_gradient;
   BITCODE_BD gradient_tint;
   BITCODE_BL num_colors;
-  BITCODE_TV gradient_name;
+  BITCODE_T gradient_name;
   BITCODE_BD elevation;
   BITCODE_BE extrusion;
   BITCODE_TV name;
-  BITCODE_B solid_fill;
-  BITCODE_B associative;
+  BITCODE_B is_solid_fill;
+  BITCODE_B is_associative;
   BITCODE_BL num_paths;
   BITCODE_BS style;
   BITCODE_BS pattern_type;
@@ -36,42 +36,43 @@ api_process (dwg_object *obj)
   Dwg_HATCH_Path* paths;
   Dwg_HATCH_DefLine * deflines;
 
+  Dwg_Version_Type dwg_version = obj->parent->header.version;
   dwg_ent_hatch *hatch = dwg_object_to_HATCH (obj);
 
-  CHK_ENTITY_TYPE (hatch, HATCH, is_gradient_fill, BL, is_gradient_fill);
+  CHK_ENTITY_TYPE (hatch, HATCH, is_gradient_fill, BL);
   if (is_gradient_fill)
     {
-      CHK_ENTITY_TYPE (hatch, HATCH, reserved, BL, reserved);
-      CHK_ENTITY_TYPE (hatch, HATCH, gradient_angle, BD, gradient_angle);
+      CHK_ENTITY_TYPE (hatch, HATCH, reserved, BL);
+      CHK_ENTITY_TYPE (hatch, HATCH, gradient_angle, BD);
       CHK_ENTITY_MAX (hatch, HATCH, gradient_angle, BD, MAX_ANGLE);
-      CHK_ENTITY_TYPE (hatch, HATCH, gradient_shift, BD, gradient_shift);
-      CHK_ENTITY_TYPE (hatch, HATCH, single_color_gradient, BL, single_color_gradient);
-      CHK_ENTITY_TYPE (hatch, HATCH, gradient_tint, BD, gradient_tint);
-      CHK_ENTITY_TYPE (hatch, HATCH, gradient_name, TV, gradient_name);
+      CHK_ENTITY_TYPE (hatch, HATCH, gradient_shift, BD);
+      CHK_ENTITY_TYPE (hatch, HATCH, single_color_gradient, BL);
+      CHK_ENTITY_TYPE (hatch, HATCH, gradient_tint, BD);
+      CHK_ENTITY_UTF8TEXT (hatch, HATCH, gradient_name);
     }
-  CHK_ENTITY_TYPE (hatch, HATCH, num_colors, BL, num_colors);
-  CHK_ENTITY_TYPE (hatch, HATCH, elevation, BD, elevation);
-  CHK_ENTITY_3RD (hatch, HATCH, extrusion, extrusion);
-  CHK_ENTITY_TYPE (hatch, HATCH, name, TV, name);
-  CHK_ENTITY_TYPE (hatch, HATCH, solid_fill, B, solid_fill);
-  CHK_ENTITY_TYPE (hatch, HATCH, associative, B, associative);
-  CHK_ENTITY_TYPE (hatch, HATCH, num_paths, BL, num_paths);
-  CHK_ENTITY_TYPE (hatch, HATCH, style, BS, style);
+  CHK_ENTITY_TYPE (hatch, HATCH, num_colors, BL);
+  CHK_ENTITY_TYPE (hatch, HATCH, elevation, BD);
+  CHK_ENTITY_3RD (hatch, HATCH, extrusion);
+  CHK_ENTITY_UTF8TEXT (hatch, HATCH, name);
+  CHK_ENTITY_TYPE (hatch, HATCH, is_solid_fill, B);
+  CHK_ENTITY_TYPE (hatch, HATCH, is_associative, B);
+  CHK_ENTITY_TYPE (hatch, HATCH, num_paths, BL);
+  CHK_ENTITY_TYPE (hatch, HATCH, style, BS);
   if (hatch->style > 2)
     fail ("Invalid HATCH.style " FORMAT_BS " > 2", hatch->style);
-  CHK_ENTITY_TYPE (hatch, HATCH, pattern_type, BS, pattern_type);
+  CHK_ENTITY_TYPE (hatch, HATCH, pattern_type, BS);
   if (hatch->pattern_type > 2)
     fail ("Invalid HATCH.pattern_type " FORMAT_BS " > 2", hatch->pattern_type);
-  CHK_ENTITY_TYPE (hatch, HATCH, angle, BD, angle);
-  CHK_ENTITY_TYPE (hatch, HATCH, scale_spacing, BD, scale_spacing);
-  CHK_ENTITY_TYPE (hatch, HATCH, double_flag, B, double_flag);
-  CHK_ENTITY_TYPE (hatch, HATCH, num_deflines, BS, num_deflines);
-  CHK_ENTITY_TYPE (hatch, HATCH, has_derived, B, has_derived);
-  CHK_ENTITY_TYPE (hatch, HATCH, pixel_size, BD, pixel_size);
+  CHK_ENTITY_TYPE (hatch, HATCH, angle, BD);
+  CHK_ENTITY_TYPE (hatch, HATCH, scale_spacing, BD);
+  CHK_ENTITY_TYPE (hatch, HATCH, double_flag, B);
+  CHK_ENTITY_TYPE (hatch, HATCH, num_deflines, BS);
+  CHK_ENTITY_TYPE (hatch, HATCH, has_derived, B);
+  CHK_ENTITY_TYPE (hatch, HATCH, pixel_size, BD);
   if (hatch->pixel_size != 0.0 && !hatch->has_derived)
     fail ("Invalid HATCH.pixel_size %f without HATCH.has_derived", hatch->pixel_size);
-  CHK_ENTITY_TYPE (hatch, HATCH, num_seeds, BL, num_seeds);
-  CHK_ENTITY_TYPE (hatch, HATCH, num_boundary_handles, BL, num_boundary_handles);
+  CHK_ENTITY_TYPE (hatch, HATCH, num_seeds, BL);
+  CHK_ENTITY_TYPE (hatch, HATCH, num_boundary_handles, BL);
 
   if (!dwg_dynapi_entity_value (hatch, "HATCH", "colors", &colors, NULL))
     fail ("HATCH.colors");
@@ -84,22 +85,8 @@ api_process (dwg_object *obj)
       else
         for (i = 0; i < num_colors; i++)
           {
-            /*
-            BITCODE_CMC color;
-            if (!dwg_dynapi_entity_value (&colors[i], "HATCH_color", "color",
-                                          &color, NULL))
-              fail ("HATCH.colors[%d].color", i);
-            else
-              {
-                if (memcmp (&color, &hatch->colors[i].color,
-                            sizeof (Dwg_Color)) == 0)
-                  ok ("HATCH.colors[%d].color:\t" FORMAT_BSd, i, color.index);
-                else
-                  fail ("HATCH.colors[%d].color:\t" FORMAT_BSd, i, color.index);
-              }
-            */
-            ok ("HATCH.colors[%d]: %f, %d", i, colors[i].shift_value,
-                colors[i].color.index);
+            CHK_SUBCLASS_TYPE (colors[i], HATCH_Color, shift_value, BD);
+            CHK_SUBCLASS_CMC (colors[i], HATCH_Color, color);
           }
     }
 
@@ -112,24 +99,23 @@ api_process (dwg_object *obj)
       else
         for (i = 0; i < num_paths; i++)
           {
-            CHK_SUBCLASS_TYPE (paths[i], HATCH_Path, flag, BL);
-            if (paths[i].flag > 2)
-              fail ("Invalid HATCH.paths[%d].flag " FORMAT_BS " > 2", i, paths[i].flag);
+            CHK_SUBCLASS_TYPE (paths[i], HATCH_Path, flag, BLx);
+            CHK_SUBCLASS_MAX (paths[i], HATCH_Path, flag, BL, 0x400);
             CHK_SUBCLASS_TYPE (paths[i], HATCH_Path, num_segs_or_paths, BL);
             if (!(paths[i].flag & 2))
               {
                 for (BITCODE_BL j = 0; j < paths[i].num_segs_or_paths; j++)
                   {
-                    CHK_SUBCLASS_TYPE (paths[i].segs[j], HATCH_PathSeg, type_status, RC);
-                    if (paths[i].segs[j].type_status > 4)
-                      fail ("Invalid HATCH.paths[%d].segs[%d].type_status %d > 4",
-                            i, j, paths[i].segs[j].type_status);
-                    if (paths[i].segs[j].type_status == 1)
+                    CHK_SUBCLASS_TYPE (paths[i].segs[j], HATCH_PathSeg, curve_type, RC);
+                    if (paths[i].segs[j].curve_type > 4)
+                      fail ("Invalid HATCH.paths[%d].segs[%d].curve_type %d > 4",
+                            i, j, paths[i].segs[j].curve_type);
+                    if (paths[i].segs[j].curve_type == 1)
                       {
                         CHK_SUBCLASS_2RD (paths[i].segs[j], HATCH_PathSeg, first_endpoint);
                         CHK_SUBCLASS_2RD (paths[i].segs[j], HATCH_PathSeg, second_endpoint);
                       }
-                    else if (paths[i].segs[j].type_status == 2)
+                    else if (paths[i].segs[j].curve_type == 2)
                       { /* CIRCULAR ARC */
                         CHK_SUBCLASS_2RD (paths[i].segs[j], HATCH_PathSeg, center);
                         CHK_SUBCLASS_TYPE (paths[i].segs[j], HATCH_PathSeg, radius, BD);
@@ -139,7 +125,7 @@ api_process (dwg_object *obj)
                         //CHK_ENTITY_MAX (hatch, HATCH_PathSeg, end_angle, BD, MAX_ANGLE);
                         CHK_SUBCLASS_TYPE (paths[i].segs[j], HATCH_PathSeg, is_ccw, B);
                       }
-                    else if (paths[i].segs[j].type_status == 3)
+                    else if (paths[i].segs[j].curve_type == 3)
                       { /* ELLIPTICAL ARC */
                         CHK_SUBCLASS_2RD (paths[i].segs[j], HATCH_PathSeg, center);
                         CHK_SUBCLASS_2RD (paths[i].segs[j], HATCH_PathSeg, endpoint);
@@ -150,7 +136,7 @@ api_process (dwg_object *obj)
                         //CHK_ENTITY_MAX (hatch, HATCH_PathSeg, end_angle, BD, MAX_ANGLE);
                         CHK_SUBCLASS_TYPE (paths[i].segs[j], HATCH_PathSeg, is_ccw, B);
                       }
-                    else if (paths[i].segs[j].type_status == 4)
+                    else if (paths[i].segs[j].curve_type == 4)
                       { /* SPLINE */
                         CHK_SUBCLASS_TYPE (paths[i].segs[j], HATCH_PathSeg, degree, BL);
                         CHK_SUBCLASS_TYPE (paths[i].segs[j], HATCH_PathSeg, is_rational, B);
@@ -176,7 +162,7 @@ api_process (dwg_object *obj)
                             paths[i].polyline_paths[j].bulge);
                   }
               }
-            CHK_SUBCLASS_TYPE (paths[i], HATCH_Path, num_boundary_handles, BL);
+            CHK_SUBCLASS_TYPE (paths[i], HATCH_Path, numboundary_handles, BL);
           }
     }
 
@@ -185,7 +171,7 @@ api_process (dwg_object *obj)
   // only with !solid_fill
   if (num_deflines)
     {
-      if (solid_fill)
+      if (is_solid_fill)
         fail ("HATCH.num_deflines with solid_fill");
       if (!deflines)
         fail ("HATCH.deflines");

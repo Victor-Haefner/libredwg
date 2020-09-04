@@ -9,18 +9,17 @@ api_process (dwg_object *obj)
   BITCODE_BL num_owned, numpoints;
   BITCODE_BS flag, curve_type;
   dwg_point_2d *points;
-  dwg_point_3d ext;
+  dwg_point_3d extrusion;
   BITCODE_H first_vertex, last_vertex, *vertex, seqend;
   Dwg_Version_Type version = obj->parent->header.version;
 
   dwg_ent_polyline_2d *polyline_2d = dwg_object_to_POLYLINE_2D (obj);
 
-  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, flag, BS, flag);
-  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, curve_type, BS, curve_type);
-  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, start_width, BD,
-                         start_width);
-  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, end_width, BD, end_width);
-  CHK_ENTITY_TYPE (polyline_2d, POLYLINE_2D, num_owned, BL, num_owned);
+  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, flag, BS);
+  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, curve_type, BS);
+  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, start_width, BD);
+  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, end_width, BD);
+  CHK_ENTITY_TYPE (polyline_2d, POLYLINE_2D, num_owned, BL);
   numpoints = dwg_object_polyline_2d_get_numpoints (obj, &error);
   if (error)
     fail ("polyline_2d_get_numpoints");
@@ -28,9 +27,9 @@ api_process (dwg_object *obj)
     ok ("TODO polyline_2d_get_numpoints: %d != num_owned: %d", numpoints,
         num_owned);
 
-  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, thickness, BD, thickness);
-  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, elevation, BD, elevation);
-  CHK_ENTITY_3RD_W_OLD (polyline_2d, POLYLINE_2D, extrusion, ext);
+  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, thickness, BD);
+  CHK_ENTITY_TYPE_W_OLD (polyline_2d, POLYLINE_2D, elevation, BD);
+  CHK_ENTITY_3RD_W_OLD (polyline_2d, POLYLINE_2D, extrusion);
 
   points = dwg_object_polyline_2d_get_points (obj, &error);
   if (!error)
@@ -43,12 +42,12 @@ api_process (dwg_object *obj)
 
   if (version >= R_2004)
     {
-      CHK_ENTITY_HV (polyline_2d, POLYLINE_2D, vertex, vertex, num_owned);
+      CHK_ENTITY_HV (polyline_2d, POLYLINE_2D, vertex, num_owned);
     }
   if (version >= R_13 && version <= R_2000)
     {
-      CHK_ENTITY_H (polyline_2d, POLYLINE_2D, first_vertex, first_vertex);
-      CHK_ENTITY_H (polyline_2d, POLYLINE_2D, last_vertex, last_vertex);
+      CHK_ENTITY_H (polyline_2d, POLYLINE_2D, first_vertex);
+      CHK_ENTITY_H (polyline_2d, POLYLINE_2D, last_vertex);
     }
-  CHK_ENTITY_H (polyline_2d, POLYLINE_2D, seqend, seqend);
+  CHK_ENTITY_H (polyline_2d, POLYLINE_2D, seqend);
 }

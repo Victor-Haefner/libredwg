@@ -46,7 +46,7 @@ typedef struct _dxf_objs
 typedef struct _dxf_pair
 {
   short code;
-  enum RES_BUF_VALUE_TYPE type;
+  enum RESBUF_VALUE_TYPE type;
   union // must be big enough for setting BD
   {
     unsigned int u;
@@ -76,8 +76,6 @@ typedef struct _array_hdls
   uint32_t size;            // in chunks of 16
   struct array_hdl items[]; // Flexible array grows
 } array_hdls;
-
-#define ARRAY_SIZE(arr) (sizeof (arr) / sizeof (arr[0]))
 
 array_hdls *array_push (array_hdls *restrict hdls, const char *restrict field,
                         const char *restrict name, const int code);
@@ -111,7 +109,8 @@ BITCODE_RC dxf_find_lweight (const int lw);
     (void)dwg_add_object (dwg);                                               \
     obj = &dwg->object[idx];                                                  \
     obj->supertype = DWG_SUPERTYPE_OBJECT;                                    \
-    obj->tio.object = calloc (1, sizeof (Dwg_Object_Object));                 \
+    obj->tio.object                                                           \
+        = (Dwg_Object_Object *)calloc (1, sizeof (Dwg_Object_Object));        \
     obj->tio.object->objid = obj->index;                                      \
     obj->tio.object->dwg = dwg;                                               \
   }
@@ -122,7 +121,8 @@ BITCODE_RC dxf_find_lweight (const int lw);
     (void)dwg_add_object (dwg);                                               \
     obj = &dwg->object[idx];                                                  \
     obj->supertype = DWG_SUPERTYPE_ENTITY;                                    \
-    obj->tio.entity = calloc (1, sizeof (Dwg_Object_Entity));                 \
+    obj->tio.entity                                                           \
+        = (Dwg_Object_Entity *)calloc (1, sizeof (Dwg_Object_Entity));        \
     obj->tio.entity->objid = obj->index;                                      \
     obj->tio.entity->dwg = dwg;                                               \
   }
@@ -163,7 +163,7 @@ BITCODE_RC dxf_find_lweight (const int lw);
 #define STRADD_TV(field, string)                                              \
   if (string)                                                                 \
     {                                                                         \
-      field = malloc (strlen (string) + 1);                                   \
+      field = (char*)malloc (strlen (string) + 1);                            \
       strcpy (field, string);                                                 \
     }
 #define STRADD_T(field, string)                                               \
@@ -173,7 +173,7 @@ BITCODE_RC dxf_find_lweight (const int lw);
         field = (char*)bit_utf8_to_TU (string);                               \
       else                                                                    \
         {                                                                     \
-          field = malloc (strlen (string) + 1);                               \
+          field = (char*)malloc (strlen (string) + 1);                        \
           strcpy (field, string);                                             \
         }                                                                     \
     }

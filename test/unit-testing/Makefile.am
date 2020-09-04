@@ -38,56 +38,70 @@ dynapi_test_LDADD = $(LDADD) \
 dxf_test_LDADD = $(LDADD) \
 	$(top_builddir)/src/common.lo \
 	$(top_builddir)/src/dynapi.lo
+common_test_LDADD =
 
 testobjects = \
 	3dface \
 	3dsolid \
-	acmecommandhistory \
-	acmescope \
-	acmestatemgr \
+	acsh_boolean_class \
 	acsh_box_class \
-	acsh_extrusion_class \
-	acsh_history_class \
-	acsh_sweep_class \
-	aldimobjectcontextdata \
+	acsh_brep_class \
+	acsh_chamfer_class \
+	acsh_cone_class \
+	acsh_cylinder_class \
+	acsh_fillet_class \
+	acsh_pyramid_class \
+	acsh_torus_class \
+	acsh_wedge_class \
+	acsh_sphere_class \
 	appid \
 	appid_control \
 	arc \
 	arc_dimension \
-	assoc2dconstraintgroup \
 	assocaction \
-	assocaligneddimactionbody \
-	assocdependency \
-	assocextrudedsurfaceactionbody \
-	assocgeomdependency \
-	assocloftedsurfaceactionbody \
 	assocnetwork \
-	assocosnappointrefactionparam \
-	assocosnappointrefactionparam \
-	assocperssubentmanager \
+	assocdependency \
+	assocgeomdependency \
+	assocvaluedependency \
+	assocblendsurfaceactionbody \
+	assocextendsurfaceactionbody \
+	assocextrudedsurfaceactionbody \
+	assocfilletsurfaceactionbody \
+	assocloftedsurfaceactionbody \
+	assocnetworksurfaceactionbody \
+	assocoffsetsurfaceactionbody \
+	assocpatchsurfaceactionbody \
 	assocplanesurfaceactionbody \
 	assocrevolvedsurfaceactionbody \
-	assocsweptsurfaceactionbody \
-	assocvertexactionparam \
+	assoctrimsurfaceactionbody \
 	attdef \
 	attrib \
-	blkrefobjectcontextdata \
+	background \
 	block \
 	block_control \
 	block_header \
+	blockgriplocationcomponent \
+	blockbasepointparameter \
+	blockflipaction \
+	blockflipparameter \
+	blockflipgrip \
+	blocklinearparameter \
+	blocklineargrip \
+	blocklookupgrip \
+	blockmoveaction \
+	blockscaleaction \
+	blockrotationparameter \
+	blockxyparameter \
+	blockvisibilitygrip \
+	blockvisibilityparameter \
 	body \
 	camera \
 	cellstylemap \
 	circle \
-	csacdocumentoptions \
-	datalink \
-	datatable \
 	dbcolor \
-	detailviewstyle \
 	dictionary \
 	dictionaryvar \
 	dictionarywdflt \
-	dimassoc \
 	dimension_aligned \
 	dimension_ang2ln \
 	dimension_ang3pt \
@@ -101,33 +115,27 @@ testobjects = \
 	dynamicblockpurgepreventer \
 	ellipse \
 	endblk \
-	evaluation_graph \
-	extrudedsurface \
 	field \
 	fieldlist \
 	geodata \
-	geomapimage \
-	geopositionmarker \
 	group \
 	hatch \
-	helix \
 	idbuffer \
 	image \
 	imagedef \
 	imagedef_reactor \
+	index \
 	insert \
+	large_radial_dimension \
 	layer \
 	layer_control \
 	layer_index \
 	layerfilter \
 	layout \
-	layoutprintconfig \
 	leader \
-	leaderobjectcontextdata \
 	light \
 	lightlist \
 	line \
-	loftedsurface \
 	long_transaction \
 	ltype \
 	ltype_control \
@@ -136,22 +144,15 @@ testobjects = \
 	mentalrayrendersettings \
 	mesh \
 	minsert \
-	mleaderobjectcontextdata \
 	mleaderstyle \
 	mline \
 	mlinestyle \
 	mtext \
-	mtextattributeobjectcontextdata \
-	mtextobjectcontextdata \
 	multileader \
-	navisworksmodel \
-	navisworksmodeldef \
 	object_ptr \
 	ole2frame \
 	oleframe \
-	persubentmgr \
 	placeholder \
-	planesurface \
 	plotsettings \
 	point \
 	polyline_2d \
@@ -164,13 +165,12 @@ testobjects = \
 	rastervariables \
 	ray \
 	region \
-	renderenvironment \
-	renderglobal \
-	revolvedsurface \
+	rendersettings \
 	scale \
 	section_manager \
 	section_settings \
 	sectionobject \
+	detailviewstyle \
 	sectionviewstyle \
 	seqend \
 	shape \
@@ -182,14 +182,9 @@ testobjects = \
 	style \
 	style_control \
 	sun \
-	sunstudy \
-	sweptsurface \
-	table \
-	tablecontent \
 	tablegeometry \
 	tablestyle \
 	text \
-	textobjectcontextdata \
 	tolerance \
 	trace \
 	ucs \
@@ -210,23 +205,159 @@ testobjects = \
 	visualstyle \
 	vport \
 	vport_control \
-	vport_entity_control \
-	vport_entity_header \
+	vx_control \
+	vx_table_record \
 	wipeout \
 	wipeoutvariables \
 	xline \
 	xrecord
 
-# NB: After you modify ‘check_PROGRAMS’, do "make update-ignorance"
+# NB: After you modify this list, do "make update-ignorance"
 #     and include this directory's .gitignore in the commit.
-check_PROGRAMS = \
+if ENABLE_DEBUG
+testdebug = \
+	acmecommandhistory \
+	acmescope \
+	acmestatemgr \
+	acsh_extrusion_class \
+	acsh_history_class \
+	acsh_loft_class \
+	acsh_revolve_class \
+	acsh_sweep_class \
+	aldimobjectcontextdata \
+	angdimobjectcontextdata \
+	annotscaleobjectcontextdata \
+	assoc2dconstraintgroup \
+	assocmleaderactionbody \
+	assocarrayactionbody \
+	assocarraymodifyactionbody \
+	assocedgechamferactionbody \
+	assocedgefilletactionbody \
+	assocrestoreentitystateactionbody \
+	assoc3pointangulardimactionbody \
+	assocaligneddimactionbody \
+	assocordinatedimactionbody \
+	assocrotateddimactionbody \
+	assocsweptsurfaceactionbody \
+	assocperssubentmanager \
+	assocvariable \
+	assocactionparam \
+	assocosnappointrefactionparam \
+	assocasmbodyactionparam \
+	assocedgeactionparam \
+	assoccompoundactionparam \
+	assocfaceactionparam \
+	assocobjectactionparam \
+	assocpathactionparam \
+	assocpointrefactionparam \
+	assocvertexactionparam \
+	assocarraymodifyparameters \
+	assocarraypathparameters \
+	assocarraypolarparameters \
+	assocarrayrectangularparameters \
+	atext \
+	blkrefobjectcontextdata \
+	assocdimdependencybody \
+	blockparamdependencybody \
+	contextdatamanager \
+	csacdocumentoptions \
+	curvepath \
+	datalink \
+	datatable \
+	dmdimobjectcontextdata \
+	dimassoc \
+	evaluation_graph \
+	extrudedsurface \
+	fcfobjectcontextdata \
+	geomapimage \
+	geopositionmarker \
+	helix \
+	layoutprintconfig \
+	leaderobjectcontextdata \
+	loftedsurface \
+	mleaderobjectcontextdata \
+	motionpath \
+	mpolygon \
+	mtextattributeobjectcontextdata \
+	mtextobjectcontextdata \
+	navisworksmodel \
+	navisworksmodeldef \
+	nurbsurface \
+	orddimobjectcontextdata \
+	persubentmgr \
+	planesurface \
+	pointcloud \
+	pointcloudex \
+	pointclouddef \
+	pointclouddefex \
+	pointclouddef_reactor \
+	pointclouddef_reactor_ex \
+	pointcloudcolormap \
+	pointpath \
+	radimobjectcontextdata \
+	radimlgobjectcontextdata \
+	renderenvironment \
+	renderentry \
+	renderglobal \
+	revolvedsurface \
+	rtext \
+	sunstudy \
+	sweptsurface \
+	table \
+	tablecontent \
+	textobjectcontextdata \
+	tvdeviceproperties \
+	visibilityparameterentity \
+	visibilitygripentity \
+	alignmentparameterentity \
+	basepointparameterentity \
+	blockalignedconstraintparameter \
+	blockalignmentgrip \
+	blockalignmentparameter \
+	blockangularconstraintparameter \
+	blockarrayaction \
+	blockdiametricconstraintparameter \
+	blockhorizontalconstraintparameter \
+	blocklinearconstraintparameter \
+	blocklookupaction \
+	blocklookupparameter \
+	blockpointparameter \
+	blockpolargrip \
+	blockpolarparameter \
+	blockpolarstretchaction \
+	blockpropertiestable \
+	blockpropertiestablegrip \
+	blockradialconstraintparameter \
+	blockrepresentation \
+	blockrotateaction \
+	blockrotationgrip \
+	blockstretchaction \
+	blockuserparameter \
+	blockverticalconstraintparameter \
+	blockxygrip \
+	dynamicblockproxynode \
+	flipparameterentity \
+	linearparameterentity \
+	pointparameterentity \
+	rotationparameterentity \
+	xyparameterentity
+
+testobjects += $(testdebug)
+endif
+
+check_minimal = \
 	bits_test \
+	common_test \
 	decode_test \
 	hash_test \
 	dynapi_test \
-	dxf_test \
+	dxf_test
+
+check_PROGRAMS = \
+	$(check_minimal) \
 	$(testobjects)
 
+check-prep: $(check_PROGRAMS)
 list:
 	echo $(testobjects) dynapi_test
 
@@ -246,6 +377,11 @@ endif
 TESTS_ENVIRONMENT = \
   top_srcdir="$(top_srcdir)" \
   ASAN_OPTIONS="detect_leaks=0"
+
+check-minimal: $(check_minimal)
+	$(MAKE) check TESTS="$(check_minimal)"
+check-debug: $(testdebug)
+	$(MAKE) check TESTS="$(testdebug)"
 
 bits_test.cbmc: bits_test.c $(top_srcdir)/src/bits.c
 	cbmc -I. -I$(top_srcdir)/include -I/opt/local/include \

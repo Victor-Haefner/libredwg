@@ -229,28 +229,28 @@ output_TEXT (Dwg_Object *obj)
 
   if (!text->text_value || entity_invisible (obj))
     return;
-  if (isnan_2BD (text->insertion_pt) || isnan_3BD (text->extrusion))
+  if (isnan_2BD (text->ins_pt) || isnan_3BD (text->extrusion))
     return;
   if (dwg->header.version >= R_2007)
     escaped = htmlwescape ((BITCODE_TU)text->text_value);
   else
     escaped = htmlescape (text->text_value, (int)dwg->header.codepage);
 
-  if (style && o->fixedtype == DWG_TYPE_STYLE && style->font_name
-      && *style->font_name
+  if (style && o->fixedtype == DWG_TYPE_STYLE && style->font_file
+      && *style->font_file
 #ifdef HAVE_STRCASESTR
-      && strcasestr (style->font_name, ".ttf")
+      && strcasestr (style->font_file, ".ttf")
 #else
-      && (strstr (style->font_name, ".ttf")
-          || strstr (style->font_name, ".TTF"))
+      && (strstr (style->font_file, ".ttf")
+          || strstr (style->font_file, ".TTF"))
 #endif
   )
     {
 #ifdef HAVE_STRCASESTR
-      if (strcasestr (style->font_name, "Arial"))
+      if (strcasestr (style->font_file, "Arial"))
 #else
-      if ((strstr (style->font_name, "arial"))
-          || strstr (style->font_name, "Arial"))
+      if ((strstr (style->font_file, "arial"))
+          || strstr (style->font_file, "Arial"))
 #endif
         {
           fontfamily = "Arial";
@@ -261,7 +261,7 @@ output_TEXT (Dwg_Object *obj)
   else
     fontfamily = "Courier";
 
-  transform_OCS_2d (&pt, text->insertion_pt, text->extrusion);
+  transform_OCS_2d (&pt, text->ins_pt, text->extrusion);
   printf ("\t<text id=\"dwg-object-%d\" x=\"%f\" y=\"%f\" "
           "font-family=\"%s\" font-size=\"%f\" fill=\"%s\">%s</text>\n",
           obj->index, transform_X (pt.x), transform_Y (pt.y), fontfamily,

@@ -25,6 +25,7 @@
 #  undef __XSI_VISIBLE /* redefined in config.h */
 #endif
 #include "config.h"
+#include <stddef.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include "dwg.h"
@@ -138,11 +139,14 @@
 #  endif
 #endif
 
+#undef CAN_ACIS_IN_DS_DATA
+#undef CAN_ACIS_HISTORY
 #define TODO_ENCODER HANDLER (OUTPUT, "TODO: Encoder\n");
 #define TODO_DECODER HANDLER (OUTPUT, "TODO: Decoder\n");
 
-// exporters are more common in the spec format, in_json and in_dxf are not using it.
-// so default to the encode-to format. dec_macros needs to override them.
+// Exporters are more common in the spec format, in_json and in_dxf are not using it.
+// So default to the encode-to format. dec_macros needs to override them.
+// See importer.h for the other way: For decode, in_json, in_dxf.
 #define VERSION(v)                                                            \
   cur_ver = v;                                                                \
   if (dat->version == v)
@@ -173,6 +177,9 @@
 
 #define SAFENAME(name) (name) ? (name) : ""
 #define SAFEDXFNAME (obj && obj->dxfname ? obj->dxfname : "")
+#define ARRAY_SIZE(arr) (int)(sizeof (arr) / sizeof ((arr)[0]))
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 
 /**
  Data types (including compressed forms) used through the project
@@ -245,24 +252,6 @@ typedef enum DWG_SENTINEL
   DWG_SENTINEL_SECOND_HEADER_END
 } Dwg_Sentinel;
 
-enum RES_BUF_VALUE_TYPE
-{
-  VT_INVALID = 0,
-  VT_STRING = 1,
-  VT_POINT3D = 2,
-  VT_REAL = 3,
-  VT_INT16 = 4,
-  VT_INT32 = 5,
-  VT_INT8 = 6,
-  VT_BINARY = 7,
-  VT_HANDLE = 8,
-  VT_OBJECTID = 9,
-  VT_BOOL = 10,
-  VT_INT64 = 11, // BLL
-};
-
-enum RES_BUF_VALUE_TYPE get_base_value_type (short gc);
-
 unsigned char *dwg_sentinel (Dwg_Sentinel sentinel);
 char *strrplc (const char *s, const char *from, const char *to);
 
@@ -279,5 +268,34 @@ char *strrplc (const char *s, const char *from, const char *to);
 #endif
 #define rad2deg(ang) (ang) * 90.0 / M_PI_2
 #define deg2rad(ang) (ang) * M_PI_2 / 90.0
+
+#if !defined(HAVE_MEMMEM) || defined(COMMON_TEST_C)
+// only if _GNU_SOURCE
+void *my_memmem (const void *h0, size_t k, const void *n0, size_t l) __nonnull((1, 3));
+#define memmem my_memmem
+#elif !defined(_GNU_SOURCE) && defined(IS_DECODER)
+/* HAVE_MEMMEM and _GNU_SOURCE are unreliable on non-Linux systems.
+   This fails on FreeBSD and macos.
+   Rather declare it by ourselves, and don't use _GNU_SOURCE. */
+void *memmem (const void *h0, size_t k, const void *n0, size_t l) __nonnull((1, 3));
+#endif
+
+// push to handle vector at the end. It really is unshift.
+#define PUSH_HV(_obj, numfield, hvfield, ref)                                 \
+  {                                                                           \
+    _obj->hvfield                                                             \
+        = realloc (_obj->hvfield, (_obj->numfield + 1) * sizeof (BITCODE_H)); \
+    _obj->hvfield[_obj->numfield] = ref;                                      \
+    LOG_TRACE ("%s[%d] = " FORMAT_REF " [H]\n", #hvfield, _obj->numfield,     \
+               ARGS_REF (_obj->hvfield[_obj->numfield]));                     \
+    _obj->numfield++;                                                         \
+  }
+
+// no need to free global handles, just the HV.
+// returns the last
+#define POP_HV(_obj, numfield, hvfield) _obj->hvfield[--_obj->numfield]
+// returns the first
+#define SHIFT_HV(_obj, numfield, hvfield) shift_hv (_obj->hvfield, &_obj->numfield)
+BITCODE_H shift_hv (BITCODE_H *hv, BITCODE_BL *num_p);
 
 #endif

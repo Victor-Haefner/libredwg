@@ -49,7 +49,7 @@ typedef struct dwg_field_name_type_offset
   const unsigned short
       is_indirect : 1; // for pointers, references, like 3BD, CMC, H, TV
   const unsigned short is_malloc : 1; // for strings and dynamic arrays only,
-                                      // H*, TV, unknown size
+                                      // H*, TV, 3BD*, unknown size
   const unsigned short is_string : 1; // for null-terminated strings, use
                                       // strcpy/wcscpy. not memcpy
   const short dxf;
@@ -159,6 +159,12 @@ EXPORT const Dwg_DYNAPI_field *dwg_dynapi_common_object_fields (void);
 /* Find the fields for this subclass. See dwg.h */
 EXPORT const Dwg_DYNAPI_field *
 dwg_dynapi_subclass_fields (const char *restrict name) __nonnull ((1));
+
+/* Search fields by dxf. Returns the first found field,
+   Sets unique to 1 if it's the only result */
+EXPORT const Dwg_DYNAPI_field *
+dwg_dynapi_field_dxf (const Dwg_DYNAPI_field *restrict fields,
+                      const int dxf, int *restrict unique);
 
 // The struct size of the object or entity
 EXPORT int

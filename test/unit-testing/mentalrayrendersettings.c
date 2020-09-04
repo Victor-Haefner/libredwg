@@ -1,4 +1,3 @@
-// TODO DEBUGGING
 #define DWG_TYPE DWG_TYPE_MENTALRAYRENDERSETTINGS
 #include "common.c"
 
@@ -7,119 +6,121 @@ api_process (dwg_object *obj)
 {
   int error, isnew;
   // AcDbRenderSettings
-  BITCODE_BL class_version;     /*!< DXF 90, default: 1 */
-  BITCODE_T name;		/*!< DXF 1 */
-  BITCODE_B fog_enabled;        /*!< DXF 290 */
-  BITCODE_B fog_background_enabled;  /*!< DXF 290 */
-  BITCODE_B b290_1;                  /*!< DXF 290 */
-  BITCODE_B environ_image_enabled;   /*!< DXF 290 */
-  BITCODE_T environ_image_filename;  /*!< DXF 1 */
-  BITCODE_T description;	     /*!< DXF 1 */
-  BITCODE_BS bs90;
+  BITCODE_BL class_version;
+  BITCODE_T name;
+  BITCODE_B fog_enabled;
+  BITCODE_B fog_background_enabled;
+  BITCODE_B backfaces_enabled;
+  BITCODE_B environ_image_enabled;
+  BITCODE_T environ_image_filename;
+  BITCODE_T description;
+  BITCODE_BL display_index;
+  BITCODE_B has_predefined; 		/*!< DXF 290, r2013 only */
   // AcDbMentalRayRenderSettings
-  BITCODE_BS bs90_0;
-  BITCODE_BS bs90_1;
-  BITCODE_BS bs90_2;
-  BITCODE_RC rc70_1;
-  BITCODE_BD fog_density_near;  /*!< DXF 40 */
-  BITCODE_BD fog_density_far;   /*!< DXF 40 */
-  BITCODE_BD samples_distance_near; /*!< DXF 40 */
-  BITCODE_BD samples_distance_far;  /*!< DXF 40 */
-  BITCODE_BD fog_distance_near; /*!< DXF 40 */
-  BITCODE_BD fog_distance_far;  /*!< DXF 40 */
-  BITCODE_RC rc70_2;
-  BITCODE_B b290_3;
-  BITCODE_B b290_4;
-  BITCODE_BS bs90_3; // 5
-  BITCODE_BS bs90_4; // 5
-  BITCODE_BS bs90_5; // 5
-  BITCODE_B b290_5;
-  BITCODE_BS bs90_6; // 500
-  BITCODE_B b290_6;
-  BITCODE_BD bd40_2; // 1.0
-  BITCODE_BS bs90_7; // 10000
-  BITCODE_BS bs90_8;  // 5
-  BITCODE_BS bs90_9;  // 5
-  BITCODE_BS bs90_10; // 5
-  BITCODE_B b290_7;   // 0
-  BITCODE_BS bs90_11;  // 200
-  BITCODE_B b290_8;   // 0
-  BITCODE_B b290_9;   // 0
-  BITCODE_B b290_10; // 0
-  BITCODE_BD bd40_3; // 1.0
-  BITCODE_BD bd40_4; // 1.0
-  BITCODE_BD bd40_5; // 1500.0
-  BITCODE_RC rc70_3; // 0
-  BITCODE_RC rc70_4; // 0
-  BITCODE_BD bd40_6; // 10.0
-  BITCODE_RC rc70_5; // 0
-  BITCODE_RC rc70_6; // 0
-  BITCODE_B b290_11; // 0
-  BITCODE_T mrdescription;     // ""
-  BITCODE_BS bs90_12; // 32
-  BITCODE_RC rc70_7; // 0
-  BITCODE_BS bs90_13; // 1048
-  BITCODE_B b290_12; // 0
-  BITCODE_BD bd40_7; // 1.0
+  BITCODE_BL mr_version;		/*!< DXF 90, always 2 */
+  BITCODE_BL sampling1;			/*!< DXF 90 */
+  BITCODE_BL sampling2;			/*!< DXF 90 */
+  BITCODE_BS sampling_mr_filter;	/*!< DXF 70 */
+  BITCODE_BD sampling_filter1;		/*!< DXF 40 */
+  BITCODE_BD sampling_filter2;		/*!< DXF 40 */
+  BITCODE_BD sampling_contrast_color1;	/*!< DXF 40 */
+  BITCODE_BD sampling_contrast_color2;	/*!< DXF 40 */
+  BITCODE_BD sampling_contrast_color3;	/*!< DXF 40 */
+  BITCODE_BD sampling_contrast_color4;	/*!< DXF 40 */
+  BITCODE_BS shadow_mode;		/*!< DXF 70 */
+  BITCODE_B  shadow_maps_enabled;	/*!< DXF 290 */
+  BITCODE_B  ray_tracing_enabled;	/*!< DXF 290 */
+  BITCODE_BL ray_trace_depth1;		/*!< DXF 90 */
+  BITCODE_BL ray_trace_depth2;		/*!< DXF 90 */
+  BITCODE_BL ray_trace_depth3;		/*!< DXF 90 */
+  BITCODE_B  global_illumination_enabled;		/*!< DXF 290 */
+  BITCODE_BL gi_sample_count;		/*!< DXF 90 */
+  BITCODE_B  gi_sample_radius_enabled;		/*!< DXF 290 */
+  BITCODE_BD gi_sample_radius;		/*!< DXF 40 */
+  BITCODE_BL gi_photons_per_light;	/*!< DXF 90 */
+  BITCODE_BL photon_trace_depth1;	/*!< DXF 90 */
+  BITCODE_BL photon_trace_depth2;	/*!< DXF 90 */
+  BITCODE_BL photon_trace_depth3;	/*!< DXF 90 */
+  BITCODE_B  final_gathering_enabled;	/*!< DXF 290 */
+  BITCODE_BL fg_ray_count;		/*!< DXF 90 */
+  BITCODE_B  fg_sample_radius_state1;	/*!< DXF 290 */
+  BITCODE_B  fg_sample_radius_state2;	/*!< DXF 290 */
+  BITCODE_B  fg_sample_radius_state3;	/*!< DXF 290 */
+  BITCODE_BD fg_sample_radius1;		/*!< DXF 40 */
+  BITCODE_BD fg_sample_radius2;		/*!< DXF 40 */
+  BITCODE_BD light_luminance_scale;		/*!< DXF 40 */
+  BITCODE_BS diagnostics_mode;		/*!< DXF 70 */
+  BITCODE_BS diagnostics_grid_mode;	/*!< DXF 70 */
+  BITCODE_BD diagnostics_grid_float;	/*!< DXF 40 */
+  BITCODE_BS diagnostics_photon_mode;	/*!< DXF 70 */
+  BITCODE_BS diagnostics_bsp_mode;	/*!< DXF 70 */
+  BITCODE_B  export_mi_enabled;		/*!< DXF 290 */
+  BITCODE_T  mr_description;		/*!< DXF 1 */
+  BITCODE_BL tile_size;			/*!< DXF 90 */
+  BITCODE_BS tile_order;		/*!< DXF 70 */
+  BITCODE_BL memory_limit;		/*!< DXF 90 */
+  BITCODE_B  diagnostics_samples_mode;	/*!< DXF 290 */
+  BITCODE_BD energy_multiplier;		/*!< DXF 40 */
 
   Dwg_Version_Type dwg_version = obj->parent->header.version;
-#ifdef DEBUG_CLASSES
   dwg_obj_mentalrayrendersettings *_obj = dwg_object_to_MENTALRAYRENDERSETTINGS (obj);
 
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, class_version, BL, class_version);
-  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, name, name);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_enabled, B, fog_enabled);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_background_enabled, B, fog_background_enabled);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_1, B, b290_1);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, environ_image_enabled, B, environ_image_enabled);
-  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, environ_image_filename, environ_image_filename);
-  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, description, description);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90, BS, bs90);
+  // AcDbRenderSettings
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, class_version, BL);
+  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, name);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_background_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, backfaces_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, environ_image_enabled, B);
+  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, environ_image_filename);
+  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, description);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, display_index, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, has_predefined, B);
 
   // AcDbMentalRayRenderSettings
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_0, BS, bs90_0);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_1, BS, bs90_1);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_2, BS, bs90_2);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, rc70_1, RC, rc70_1);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_density_near, BD, fog_density_near);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_density_far, BD, fog_density_far);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, samples_distance_near, BD, samples_distance_near);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, samples_distance_far, BD, samples_distance_far);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_distance_near, BD, fog_distance_near);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fog_distance_far, BD, fog_distance_far);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, rc70_2, RC, rc70_2);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_3, B, b290_3);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_4, B, b290_4);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_3, BS, bs90_3);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_4, BS, bs90_4);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_5, BS, bs90_5);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_5, B, b290_5);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_6, BS, bs90_6);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_6, B, b290_6);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bd40_2, BD, bd40_2);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_7, BS, bs90_7);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_8, BS, bs90_8);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_9, BS, bs90_9);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_10, BS, bs90_10);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_7, B, b290_7);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_11, BS, bs90_11);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_8, B, b290_8);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_9, B, b290_9);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_10, B, b290_10);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bd40_3, BD, bd40_3);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bd40_4, BD, bd40_4);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bd40_5, BD, bd40_5);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, rc70_3, RC, rc70_3);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, rc70_4, RC, rc70_4);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bd40_6, BD, bd40_6);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, rc70_5, RC, rc70_5);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, rc70_6, RC, rc70_6);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_11, B, b290_11);
-  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, mrdescription, mrdescription);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_12, BS, bs90_12);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, rc70_7, RC, rc70_7);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bs90_13, BS, bs90_13);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, b290_12, B, b290_12);
-  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, bd40_7, BD, bd40_7);  
-#endif
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, mr_version, BL);
+  CHK_ENTITY_MAX (_obj, MENTALRAYRENDERSETTINGS, mr_version, BL, 3); // currently 2
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling1, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling2, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling_mr_filter, BS);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling_filter1, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling_filter2, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling_contrast_color1, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling_contrast_color2, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling_contrast_color3, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, sampling_contrast_color4, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, shadow_mode, BS);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, shadow_maps_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, ray_tracing_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, ray_trace_depth1, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, ray_trace_depth2, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, ray_trace_depth3, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, global_illumination_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, gi_sample_count, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, gi_sample_radius_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, gi_sample_radius, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, gi_photons_per_light, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, photon_trace_depth1, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, photon_trace_depth2, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, photon_trace_depth3, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, final_gathering_enabled, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fg_ray_count, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fg_sample_radius_state1, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fg_sample_radius_state2, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fg_sample_radius_state3, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fg_sample_radius1, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, fg_sample_radius2, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, light_luminance_scale, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, diagnostics_mode, BS);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, diagnostics_grid_mode, BS);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, diagnostics_grid_float, BD);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, diagnostics_photon_mode, BS);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, diagnostics_bsp_mode, BS);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, export_mi_enabled, B);
+  CHK_ENTITY_UTF8TEXT (_obj, MENTALRAYRENDERSETTINGS, mr_description);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, tile_size, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, tile_order, BS);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, memory_limit, BL);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, diagnostics_samples_mode, B);
+  CHK_ENTITY_TYPE (_obj, MENTALRAYRENDERSETTINGS, energy_multiplier, BD);
 }

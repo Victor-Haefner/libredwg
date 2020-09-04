@@ -4,81 +4,132 @@
 void
 api_process (dwg_object *obj)
 {
-  int error;
+  int error, isnew;
   BITCODE_BL i;
-  BITCODE_BS version;
-  BITCODE_BL block_size, isolines, num_wires, num_sil, unknown_2007;
-  unsigned char *acis_data;
-  BITCODE_B wireframe_data_present, point_present, isoline_present;
-  BITCODE_B acis_empty, acis2_empty;
-  dwg_point_3d point, pt3d;
-  dwg_3dsolid_wire *wire;
-  dwg_3dsolid_silhouette *sil;
-  BITCODE_H history_id;
+  _3DSOLID_FIELDS;
 
   dwg_ent_body *body = dwg_object_to_BODY (obj);
   Dwg_Version_Type dwg_version = obj->parent->header.version;
 
-  CHK_ENTITY_TYPE (body, BODY, acis_empty, B, acis_empty);
-  if (dwg_ent_body_get_acis_empty (body, &error) != acis_empty || error)
-    fail ("old API dwg_ent_body_get_acis_empty");
-  CHK_ENTITY_TYPE (body, BODY, version, BS, version);
-  if (dwg_ent_body_get_version (body, &error) != version || error)
-    fail ("old API dwg_ent_body_get_version");
-  CHK_ENTITY_TYPE (body, BODY, acis_data, TV, acis_data);
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, acis_empty, B);
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, version, BS);
+  CHK_ENTITY_TYPE (body, BODY, acis_data, TV);
   if (strcmp ((char *)dwg_ent_body_get_acis_data (body, &error),
               (char *)acis_data)
       || error)
     fail ("old API dwg_ent_body_get_acis_data");
-  CHK_ENTITY_TYPE (body, BODY, wireframe_data_present, B,
-                   wireframe_data_present);
-  if (dwg_ent_body_get_wireframe_data_present (body, &error)
-          != wireframe_data_present
-      || error)
-    fail ("old API dwg_ent_body_get_wireframe_data_present");
-  CHK_ENTITY_TYPE (body, BODY, point_present, B, point_present);
-  if (dwg_ent_body_get_point_present (body, &error) != point_present || error)
-    fail ("old API dwg_ent_body_get_point_present");
-  CHK_ENTITY_3RD (body, BODY, point, point);
-  dwg_ent_body_get_point (body, &pt3d, &error);
-  if (error || memcmp (&point, &pt3d, sizeof (point)))
-    fail ("old API dwg_ent_body_get_point");
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, wireframe_data_present, B);
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, point_present, B);
+  CHK_ENTITY_3RD_W_OLD (body, BODY, point);
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, isoline_present, B);
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, isolines, BL);
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, num_wires, BL);
+  CHK_ENTITY_TYPE_W_OLD (body, BODY, num_silhouettes, BL);
 
-  CHK_ENTITY_TYPE (body, BODY, isoline_present, B, isoline_present);
-  if (dwg_ent_body_get_isoline_present (body, &error) != isoline_present
-      || error)
-    fail ("old API dwg_ent_body_get_isoline_present");
-  CHK_ENTITY_TYPE (body, BODY, isolines, BL, isolines);
-  if (dwg_ent_body_get_num_isolines (body, &error) != isolines || error)
-    fail ("old API dwg_ent_body_get_num_isolines");
-  CHK_ENTITY_TYPE (body, BODY, num_wires, BL, num_wires);
-  if (dwg_ent_body_get_num_wires (body, &error) != num_wires || error)
-    fail ("old API dwg_ent_body_get_num_wires");
-  CHK_ENTITY_TYPE (body, BODY, num_silhouettes, BL, num_sil);
-  if (dwg_ent_body_get_num_silhouettes (body, &error) != num_sil || error)
-    fail ("old API dwg_ent_body_get_num_sil");
-
-  wire = dwg_ent_body_get_wires (body, &error);
+  wires = dwg_ent_body_get_wires (body, &error);
   if (!error)
     {
       for (i = 0; i < num_wires; i++)
-        printf ("BODY.wire[%u]: " FORMAT_BL "\n", i, wire[i].selection_marker);
+        {
+          CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, type, RC);
+          CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, selection_marker, BL);
+          PRE (R_2004) {
+            CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, color, BS);
+          } else {
+            CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, color, BL);
+          }
+          CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, acis_index, BL);
+          CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, num_points, BL);
+          CHK_SUBCLASS_3DPOINTS (wires[i], 3DSOLID_wire, points, wires[i].num_points);
+          CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, transform_present, B);
+          if (wires[i].transform_present)
+            {
+              CHK_SUBCLASS_3RD (wires[i], 3DSOLID_wire, axis_x);
+              CHK_SUBCLASS_3RD (wires[i], 3DSOLID_wire, axis_y);
+              CHK_SUBCLASS_3RD (wires[i], 3DSOLID_wire, axis_z);
+              CHK_SUBCLASS_3RD (wires[i], 3DSOLID_wire, translation);
+              CHK_SUBCLASS_3RD (wires[i], 3DSOLID_wire, scale);
+              CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, has_rotation, B);
+              CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, has_reflection, B);
+              CHK_SUBCLASS_TYPE (wires[i], 3DSOLID_wire, has_shear, B);
+            }
+        }
+      free (wires);
     }
   else
-    fail ("num wires");
+    fail ("dwg_ent_body_get_wires");
 
-  sil = dwg_ent_body_get_silhouettes (body, &error);
+  silhouettes = dwg_ent_body_get_silhouettes (body, &error);
   if (!error)
     {
-      for (i = 0; i < num_sil; i++)
-        printf ("BODY.silhouette[%u]: " FORMAT_BL "\n", i, sil[i].vp_id);
+      for (i = 0; i < num_silhouettes; i++)
+        {
+          CHK_SUBCLASS_TYPE (silhouettes[i], 3DSOLID_silhouette, vp_id, BL);
+          CHK_SUBCLASS_3RD (silhouettes[i], 3DSOLID_silhouette, vp_target);
+          CHK_SUBCLASS_3RD (silhouettes[i], 3DSOLID_silhouette, vp_dir_from_target);
+          CHK_SUBCLASS_3RD (silhouettes[i], 3DSOLID_silhouette, vp_up_dir);
+          CHK_SUBCLASS_TYPE (silhouettes[i], 3DSOLID_silhouette, vp_perspective, B);
+          CHK_SUBCLASS_TYPE (silhouettes[i], 3DSOLID_silhouette, has_wires, B);
+          if (silhouettes[i].has_wires)
+            {
+              wires = silhouettes[i].wires;
+              CHK_SUBCLASS_TYPE (silhouettes[i], 3DSOLID_silhouette, num_wires, BL);
+              for (unsigned j = 0; j < silhouettes[i].num_wires; j++)
+                {
+                  CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, type, RC);
+                  CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, selection_marker, BL);
+                  CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, color, BL);
+                  CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, acis_index, BL);
+                  CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, num_points, BL);
+                  CHK_SUBCLASS_3DPOINTS (wires[j], 3DSOLID_wire, points, wires[i].num_points);
+                  CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, transform_present, B);
+                  if (wires[j].transform_present)
+                    {
+                      CHK_SUBCLASS_3RD (wires[j], 3DSOLID_wire, axis_x);
+                      CHK_SUBCLASS_3RD (wires[j], 3DSOLID_wire, axis_y);
+                      CHK_SUBCLASS_3RD (wires[j], 3DSOLID_wire, axis_z);
+                      CHK_SUBCLASS_3RD (wires[j], 3DSOLID_wire, translation);
+                      CHK_SUBCLASS_3RD (wires[j], 3DSOLID_wire, scale);
+                      CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, has_rotation, B);
+                      CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, has_reflection, B);
+                      CHK_SUBCLASS_TYPE (wires[j], 3DSOLID_wire, has_shear, B);
+                    }
+                }
+            }
+        }
+      free (silhouettes);
     }
   else
-    fail ("silhouettes");
+    fail ("dwg_ent_body_get_silhouettes");
 
-  if (dwg_version >= R_2007 && body->history_id) // if it did not fail before
+  if (version > 1)
     {
-      CHK_ENTITY_TYPE (body, BODY, unknown_2007, BL, unknown_2007);
-      CHK_ENTITY_H (body, BODY, history_id, history_id);
+      CHK_ENTITY_TYPE (body, BODY, num_materials, BL);
+      SINCE (R_2007) {
+        if (!dwg_dynapi_entity_value (body, "BODY", "materials", &materials, NULL))
+          fail ("BODY.materials");
+        else
+          {
+            for (i = 0; i < num_materials; i++)
+              {
+                CHK_SUBCLASS_TYPE (materials[i], 3DSOLID_material, array_index, BL);
+                CHK_SUBCLASS_TYPE (materials[i], 3DSOLID_material, mat_absref, BL);
+                CHK_SUBCLASS_H (materials[i], 3DSOLID_material, material_handle);
+              }
+          }
+      }
     }
+  CHK_ENTITY_TYPE (body, BODY, has_revision_guid, B);
+  if (has_revision_guid)
+    {
+      CHK_ENTITY_TYPE (body, BODY, revision_major, BL);
+      CHK_ENTITY_TYPE (body, BODY, revision_minor1, BS);
+      CHK_ENTITY_TYPE (body, BODY, revision_minor2, BS);
+      CHK_ENTITY_TYPE (body, BODY, revision_bytes, TV);
+      CHK_ENTITY_TYPE (body, BODY, end_marker, BL);
+    }
+
+  SINCE (R_2007) {
+    CHK_ENTITY_H (body, BODY, history_id);
+  }
 }

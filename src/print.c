@@ -33,6 +33,7 @@
 
 /* the current version per spec block */
 static unsigned int cur_ver = 0;
+static BITCODE_BL rcount1, rcount2;
 
 /*--------------------------------------------------------------------------------
  * MACROS
@@ -47,8 +48,9 @@ static unsigned int cur_ver = 0;
   LOG_TRACE (#name ": " FORMAT_##type " [" #type "]\n", _obj->name)
 #define FIELD_G_TRACE(name, type, dxf)                                        \
   LOG_TRACE (#name ": " FORMAT_##type " [" #type " " #dxf "]\n", _obj->name)
-#define FIELD_CAST(name, type, cast, dxf) FIELD_G_TRACE (name, cast, dxf)
+#define FIELD_CAST(nam, type, cast, dxf) FIELD_G_TRACE (nam, cast, dxf)
 #define SUB_FIELD(o, nam, type, dxf) FIELDG (o.nam, type, dxf)
+#define SUB_FIELD_CAST(o, nam, type, cast, dxf) FIELD_G_TRACE (o.nam, cast, dxf)
 
 #define LOG_INSANE_TF(var, len)
 #define FIELD_VALUE(name) _obj->name
@@ -140,7 +142,7 @@ static unsigned int cur_ver = 0;
   }
 #define FIELD_BE(name, dxf) FIELD_3RD (name, dxf)
 #define FIELD_DD(name, _default, dxf)
-#define FIELD_2DD(name, d1, d2, dxf) FIELD_2PT_TRACE (name, DD, dxf)
+#define FIELD_2DD(name, def, dxf) FIELD_2PT_TRACE (name, DD, dxf)
 #define FIELD_3DD(name, def, dxf) FIELD_3PT_TRACE (name, DD, dxf)
 #define FIELD_2RD(name, dxf) FIELD_2PT_TRACE (name, RD, dxf)
 #define FIELD_2BD(name, dxf) FIELD_2PT_TRACE (name, BD, dxf)
@@ -149,13 +151,13 @@ static unsigned int cur_ver = 0;
 #define FIELD_3BD(name, dxf) FIELD_3PT_TRACE (name, BD, dxf)
 #define FIELD_3BD_1(name, dxf) FIELD_3PT_TRACE (name, BD, dxf)
 #define FIELD_3DPOINT(name, dxf) FIELD_3BD (name, dxf)
-#define FIELD_CMC(color, dxf1, dxf2)                                          \
+#define FIELD_CMC(color, dxf)                                                 \
   {                                                                           \
-    LOG_TRACE (#color ".index [CMC.BS %d]\n", _obj->color.index)              \
+    LOG_TRACE (#color ".index: %d [CMC.BS %d]\n", _obj->color.index, dxf)     \
     if (dat->version >= R_2004)                                               \
       {                                                                       \
         LOG_TRACE (#color ".rgb: 0x%06x [CMC.BL %d]\n",                       \
-                   (unsigned)_obj->color.rgb, dxf2);                          \
+                   (unsigned)_obj->color.rgb, dxf + 420 - 62);                \
         LOG_TRACE (#color ".flag: 0x%x [CMC.RC]\n",                           \
                    (unsigned)_obj->color.flag);                               \
         if (_obj->color.flag & 1)                                             \
@@ -165,13 +167,13 @@ static unsigned int cur_ver = 0;
                      _obj->color.book_name);                                  \
       }                                                                       \
   }
-#define SUB_FIELD_CMC(o, color, dxf1, dxf2)                                   \
+#define SUB_FIELD_CMC(o, color, dxf)                                          \
   {                                                                           \
-    LOG_TRACE (#color ".index [CMC.BS %d]\n", _obj->o.color.index)            \
+    LOG_TRACE (#color ".index: %d [CMC.BS %d]\n", _obj->o.color.index, dxf)   \
     if (dat->version >= R_2004)                                               \
       {                                                                       \
         LOG_TRACE (#color ".rgb: 0x%06x [CMC.BL %d]\n",                       \
-                   (unsigned)_obj->o.color.rgb, dxf2);                        \
+                   (unsigned)_obj->o.color.rgb, dxf + 420 - 62);              \
         LOG_TRACE (#color ".flag: 0x%x [CMC.RC]\n",                           \
                    (unsigned)_obj->o.color.flag);                             \
         if (_obj->o.color.flag & 1)                                           \
@@ -190,13 +192,13 @@ static unsigned int cur_ver = 0;
           LOG_TRACE (#color ".flag: 0x%x\n", (unsigned)_obj->color.flag);     \
         if (_obj->color.flag & 0x20)                                          \
           LOG_TRACE (#color ".alpha: 0%d [ENC.BL %d]\n",                      \
-                     (int)_obj->color.alpha, dxf2 + 20);                      \
+                     (int)_obj->color.alpha, dxf + 440 - 62);                 \
         if (_obj->color.flag & 0x40)                                          \
           LOG_TRACE (#color ".handle: " FORMAT_REF " [ENC.H %d]\n",           \
-                     ARGS_REF (_obj->color.handle), dxf2 + 10);               \
+                     ARGS_REF (_obj->color.handle), dxf + 430 - 62);          \
         if (_obj->color.flag & 0x80)                                          \
           LOG_TRACE (#color ".rgb: 0x%06x [ENC.BL %d]\n",                     \
-                     (unsigned)_obj->color.rgb, dxf2);                        \
+                     (unsigned)_obj->color.rgb, dxf + 420 - 62);              \
       }                                                                       \
   }
 
@@ -210,6 +212,7 @@ static unsigned int cur_ver = 0;
 #define VALUE_RS(value, dxf) VALUE (value, RS, dxf)
 #define VALUE_RL(value, dxf) VALUE (value, RL, dxf)
 #define VALUE_RD(value, dxf) VALUE (value, RD, dxf)
+#define VALUE_BD(value, dxf) VALUE (value, BD, dxf)
 
 // FIELD_VECTOR_N(name, type, size):
 // reads data of the type indicated by 'type' 'size' times and stores
@@ -254,8 +257,7 @@ static unsigned int cur_ver = 0;
       FIELD_2RD (name[0], 0);                                                 \
       for (vcount = 1; vcount < (BITCODE_BL)_obj->size; vcount++)             \
         {                                                                     \
-          FIELD_2DD (name[vcount], FIELD_VALUE (name[vcount - 1].x),          \
-                     FIELD_VALUE (name[vcount - 1].y), dxf);                  \
+          FIELD_2DD (name[vcount], name[vcount - 1], dxf);                    \
         }                                                                     \
     }
 
@@ -304,7 +306,7 @@ static unsigned int cur_ver = 0;
 #define XDICOBJHANDLE(code)                                                   \
   SINCE (R_2004)                                                              \
   {                                                                           \
-    if (!obj->tio.object->xdic_missing_flag)                                  \
+    if (!obj->tio.object->is_xdic_missing)                                  \
       VALUE_HANDLE (obj->tio.object->xdicobjhandle, xdicobjhandle, code, 0);  \
   }                                                                           \
   PRIOR_VERSIONS                                                              \
@@ -332,10 +334,15 @@ static unsigned int cur_ver = 0;
   bit_set_position (hdl_dat, obj->hdlpos)
 
 #define DWG_ENTITY(token)                                                     \
+  static int dwg_print_##token##_private (                                    \
+      Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,                 \
+      const Dwg_Object *restrict obj) {                                       \
+    return 0;                                                                 \
+  }                                                                           \
   static int dwg_print_##token (Bit_Chain *restrict dat,                      \
-                                Dwg_Object *restrict obj)                     \
+                                const Dwg_Object *restrict obj)               \
   {                                                                           \
-    BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4;                    \
+    BITCODE_BL vcount, rcount3, rcount4;                                      \
     Dwg_Entity_##token *ent, *_obj;                                           \
     Dwg_Object_Entity *_ent;                                                  \
     Bit_Chain *hdl_dat = dat;                                                 \
@@ -345,6 +352,7 @@ static unsigned int cur_ver = 0;
     LOG_INFO ("Entity " #token ":\n")                                         \
     _ent = obj->tio.entity;                                                   \
     _obj = ent = _ent->tio.token;                                             \
+    dwg_print_##token##_private (dat, hdl_dat, str_dat, obj);                 \
     LOG_TRACE ("Entity handle: " FORMAT_H "\n", ARGS_H (obj->handle))
 
 #define DWG_ENTITY_END                                                        \
@@ -352,16 +360,22 @@ static unsigned int cur_ver = 0;
   }
 
 #define DWG_OBJECT(token)                                                     \
+  static int dwg_print_##token##_private (                                    \
+      Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,                 \
+      const Dwg_Object *restrict obj) {                                       \
+    return 0;                                                                 \
+  }                                                                           \
   static int dwg_print_##token (Bit_Chain *restrict dat,                      \
-                                Dwg_Object *restrict obj)                     \
+                                const Dwg_Object *restrict obj)               \
   {                                                                           \
-    BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4;                    \
+    BITCODE_BL vcount, rcount3, rcount4;                                      \
     Dwg_Object_##token *_obj;                                                 \
     Bit_Chain *hdl_dat = dat;                                                 \
     Bit_Chain *str_dat = dat;                                                 \
     Dwg_Data *dwg = obj->parent;                                              \
     int error = 0;                                                            \
     LOG_INFO ("Object " #token ":\n")                                         \
+    dwg_print_##token##_private (dat, hdl_dat, str_dat, obj);                 \
     _obj = obj->tio.object->tio.token;                                        \
     LOG_TRACE ("Object handle: " FORMAT_H "\n", ARGS_H (obj->handle))
 
@@ -537,10 +551,10 @@ dwg_print_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj)
       return dwg_print_DIMSTYLE_CONTROL (dat, obj);
     case DWG_TYPE_DIMSTYLE:
       return dwg_print_DIMSTYLE (dat, obj);
-    case DWG_TYPE_VPORT_ENTITY_CONTROL:
-      return dwg_print_VPORT_ENTITY_CONTROL (dat, obj);
-    case DWG_TYPE_VPORT_ENTITY_HEADER:
-      return dwg_print_VPORT_ENTITY_HEADER (dat, obj);
+    case DWG_TYPE_VX_CONTROL:
+      return dwg_print_VX_CONTROL (dat, obj);
+    case DWG_TYPE_VX_TABLE_RECORD:
+      return dwg_print_VX_TABLE_RECORD (dat, obj);
     case DWG_TYPE_GROUP:
       return dwg_print_GROUP (dat, obj);
     case DWG_TYPE_MLINESTYLE:

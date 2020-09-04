@@ -5,18 +5,18 @@ void
 api_process (dwg_object *obj)
 {
   int error;
-  BITCODE_BL num_rows;
-  BITCODE_BL num_cols;
-  BITCODE_BL num_cells; /* = num_rows * num_cols */
+  BITCODE_BL numrows;
+  BITCODE_BL numcols;
+  BITCODE_BL num_cells; /* = numrows * numcols */
   Dwg_TABLEGEOMETRY_Cell *cells;
   Dwg_CellContentGeometry *geometry;
 
   Dwg_Version_Type dwg_version = obj->parent->header.version;
   dwg_obj_tablegeometry *_obj = dwg_object_to_TABLEGEOMETRY (obj);
 
-  CHK_ENTITY_TYPE (_obj, TABLEGEOMETRY, num_rows, BL, num_rows);
-  CHK_ENTITY_TYPE (_obj, TABLEGEOMETRY, num_cols, BL, num_cols);
-  CHK_ENTITY_TYPE (_obj, TABLEGEOMETRY, num_cells, BL, num_cells);
+  CHK_ENTITY_TYPE (_obj, TABLEGEOMETRY, numrows, BL);
+  CHK_ENTITY_TYPE (_obj, TABLEGEOMETRY, numcols, BL);
+  CHK_ENTITY_TYPE (_obj, TABLEGEOMETRY, num_cells, BL);
   if (!dwg_dynapi_entity_value (_obj, "TABLEGEOMETRY", "cells", &cells, NULL))
     fail ("TABLEGEOMETRY.cells");
   else

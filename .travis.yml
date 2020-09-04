@@ -1,6 +1,6 @@
 language: c
 sudo: false
-dist: xenial
+dist: bionic
 os:
   - linux
 #  - osx
@@ -20,20 +20,16 @@ matrix:
   fast_finish: true
   include:
     - compiler: gcc
-      env: CONF="--enable-trace --disable-write"
+      env: ASAN=1 CONF="--disable-bindings"
+    - compiler: gcc
+      env: DISTCHECK=1 CONF="--enable-release"
+    - compiler: gcc
+      env: CONF="--enable-trace"
       #addons:
       #  apt:
       #    packages:
       #      - valgrind
     - compiler: clang
-      #addons:
-      #  apt:
-      #    packages:
-      #      clang-3.8
-      env: ASAN=1 CONF="--disable-bindings"
-    - compiler: clang
-    - compiler: gcc
-      env: DISTCHECK=1 CONF="--enable-release"
 
 branches:
   except:
@@ -45,21 +41,29 @@ install:
 
 script:
   - if [ -n "$ASAN" ]; then
-      CC="clang -O0 -fno-omit-frame-pointer -fsanitize=address,undefined" ;
+      CLANG="-O0 -fno-omit-frame-pointer -fsanitize=address,undefined -fno-var-tracking" ;
     fi
   - ./configure $CONF
-  # starts swapping with only 8GB. seperate the biggest
+    # ASAN started swapping with only 8GB
   - if [ -n "$ASAN" ]; then
-      travis_wait make -C src decode.lo ;
-      travis_wait make -C src encode.lo ;
-      travis_wait make -j4 ;
+        travis_wait make -C src encode.lo ;
+        travis_wait make -C src decode.lo ;
+        travis_wait make -j4 -C src ;
+        make -j4 ;
     else
-      make -j4 ;
+        make -j4 ;
     fi
+    # ASAN just became too slow. skip unit-tests there.
   - if [ -n "$DISTCHECK" ]; then
-      travis_wait make -j4 distcheck && sha256sum libredwg-*.tar.* ;
+      travis_wait 30 make -j4 distcheck && sha256sum libredwg-*.tar.* ;
     else
-      make -j4 check ;
+      if [ -n "$ASAN" ]; then
+        make -j4 check -C src ;
+        travis_wait make -j4 check -C programs ;
+        travis_wait make -j4 check-minimal -C test/unit-testing/ ;
+      else
+        make -j4 check ;
+      fi
     fi
 
 deploy:

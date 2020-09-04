@@ -44,6 +44,9 @@
 #  include <wchar.h>
 #endif
 #include <stdio.h>
+#include <string.h>
+#include <stddef.h>
+#include <stdbool.h>
 #include "common.h"
 #include "dwg.h"
 
@@ -54,7 +57,7 @@
 #endif
 
 /**
- Structure for DWG-files raw data storage
+ Structure for DWG-files raw data streams.
  */
 typedef struct _bit_chain
 {
@@ -63,10 +66,14 @@ typedef struct _bit_chain
   long unsigned int byte;
   unsigned char bit;
   unsigned char opts; // from dwg->opts, see DWG_OPTS_*
-  FILE *fh;
   Dwg_Version_Type version;
   Dwg_Version_Type from_version;
+  FILE *fh;
 } Bit_Chain;
+
+#define EMPTY_CHAIN(size) { NULL, size, 0L, 0, 0, 0, 0, NULL }
+
+#define IS_FROM_TU(dat) dat->from_version >= R_2007 && !(dat->opts & DWG_OPTS_IN)
 
 /* Functions for raw data manipulations.
  */
@@ -181,6 +188,7 @@ void bit_read_BE (Bit_Chain *restrict dat, double *restrict x,
                   double *restrict y, double *restrict z);
 
 void bit_write_BE (Bit_Chain *dat, double x, double y, double z);
+void normalize_BE (BITCODE_3BD ext);
 
 BITCODE_DD bit_read_DD (Bit_Chain *dat, double default_value);
 BITCODE_BB bit_write_DD (Bit_Chain *dat, double value, double default_value);
@@ -243,12 +251,28 @@ EXPORT char *bit_embed_TU (BITCODE_TU restrict wstr) ATTRIBUTE_MALLOC;
 EXPORT char *bit_embed_TU_size (BITCODE_TU restrict wstr, const int len) ATTRIBUTE_MALLOC;
 
 #ifdef HAVE_NATIVE_WCHAR2
-#define bit_wcs2len(wstr) wcslen(wstr)
-#define bit_wcs2cpy(dest,src) wcscpy(dest,src)
+#  define bit_wcs2len(wstr) wcslen (wstr)
+#  ifdef HAVE_WCSNLEN
+#    define bit_wcs2nlen(wstr, maxlen) wcsnlen (wstr, maxlen)
+#  else
+size_t bit_wcs2nlen (const BITCODE_TU restrict wstr, const size_t maxlen);
+#  endif
+#  define bit_wcs2cpy(dest, src) wcscpy (dest, src)
+#  define bit_wcs2cmp(dest, src) wcscmp (s1, s2)
 #else
 /* length of UCS-2 string */
-int bit_wcs2len (BITCODE_TU restrict wstr);
-BITCODE_TU bit_wcs2cpy (BITCODE_TU restrict dest, const BITCODE_TU restrict src);
+size_t bit_wcs2len (const BITCODE_TU restrict wstr);
+/* bounded length of UCS-2 string. stops scanning at maxlen.
+   Beware: might overflow to negative lengths */
+size_t bit_wcs2nlen (const BITCODE_TU restrict wstr, const size_t maxlen);
+BITCODE_TU bit_wcs2cpy (BITCODE_TU restrict dest,
+                        const BITCODE_TU restrict src);
+int bit_wcs2cmp (BITCODE_TU restrict s1, const BITCODE_TU restrict s2);
+#endif
+
+#ifndef HAVE_STRNLEN
+size_t bit_strnlen (const char *restrict str, const size_t maxlen);
+#define strnlen (str, maxlen) bit_strnlen(str, maxlen)
 #endif
 
 /* Converts UCS-2 to UTF-8, returning a copy. */
@@ -264,8 +288,13 @@ bit_utf8_to_TV (char *restrict dest, const unsigned char *restrict src, const in
     Needed by dwg importers, writers (e.g. dxf2dwg) */
 EXPORT BITCODE_TU bit_utf8_to_TU (char *restrict str) ATTRIBUTE_MALLOC;
 
+/* compare an ASCII/TU string to ASCII name */
+int bit_eq_T (Bit_Chain *restrict dat, const BITCODE_T restrict str1, const char *restrict str2);
 /* compare an ASCII/utf-8 string to a r2007+ name */
 int bit_eq_TU (const char *str, BITCODE_TU restrict wstr);
+/* check if the string (ascii or unicode) is empty */
+int bit_empty_T (Bit_Chain *restrict dat, BITCODE_T restrict str);
+BITCODE_T bit_set_T (Bit_Chain *restrict dat, const char* restrict src);
 
 BITCODE_RL bit_read_L (Bit_Chain *dat);
 void bit_write_L (Bit_Chain *dat, BITCODE_RL value);
@@ -276,8 +305,11 @@ void bit_write_TIMEBLL (Bit_Chain *dat, BITCODE_TIMEBLL date);
 BITCODE_TIMERLL bit_read_TIMERLL (Bit_Chain *dat);
 void bit_write_TIMERLL (Bit_Chain *dat, BITCODE_TIMERLL date);
 
-void bit_read_CMC (Bit_Chain *restrict dat, Dwg_Color *restrict color);
-void bit_write_CMC (Bit_Chain *restrict dat, Dwg_Color *restrict color);
+int bit_read_CMC (Bit_Chain *dat, Bit_Chain *str_dat, Dwg_Color *restrict color);
+void bit_write_CMC (Bit_Chain *dat, Bit_Chain *str_dat, Dwg_Color *restrict color);
+// Convert from truecolor (r2004+) to palette (-r2000)
+void bit_downconvert_CMC (Bit_Chain *dat, Dwg_Color *restrict color);
+void bit_upconvert_CMC (Bit_Chain *dat, Dwg_Color *restrict color);
 
 void bit_read_ENC (Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,
                    Dwg_Color *restrict color);
@@ -288,13 +320,15 @@ int bit_search_sentinel (Bit_Chain *dat, unsigned char sentinel[16]);
 void bit_write_sentinel (Bit_Chain *dat, unsigned char sentinel[16]);
 
 void bit_chain_init (Bit_Chain *dat, const int size);
+void bit_chain_init_dat (Bit_Chain *restrict dat, const int size,
+                         const Bit_Chain *restrict from_dat);
 void bit_chain_alloc (Bit_Chain *dat);
 void bit_chain_free (Bit_Chain *dat);
 // after bit_chain_init
 #define bit_chain_set_version(to, from)                                       \
+  (to)->opts = (from)->opts;                                                  \
   (to)->version = (from)->version;                                            \
   (to)->from_version = (from)->from_version;                                  \
-  (to)->opts = (from)->opts;                                                  \
   (to)->fh = (from)->fh
 
 void bit_print (Bit_Chain *dat, long unsigned int size);
@@ -305,9 +339,12 @@ void bit_print_bits (unsigned char *bits, long unsigned int bitsize);
 void bit_fprint_bits (FILE *fp, unsigned char *bits, long unsigned int bitsize);
 void bit_explore_chain (Bit_Chain *dat, long unsigned int datsize);
 
-BITCODE_BD
-bit_nan (void);
-
+BITCODE_BD bit_nan (void);
 int bit_isnan (BITCODE_BD number);
+
+// which would require different text sizes and recalc.
+bool does_cross_unicode_datversion (Bit_Chain *restrict dat);
+/* Copy the whole content of tmp_data to dat, and reset tmp_dat */
+void bit_copy_chain (Bit_Chain *restrict orig_dat, Bit_Chain *restrict tmp_dat);
 
 #endif

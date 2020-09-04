@@ -6,77 +6,57 @@ void
 api_process (dwg_object *obj)
 {
   int error, isnew;
-  // ASSOCACTION
-  BITCODE_BL solution_status; /* 0-6 */
-  BITCODE_BL geometry_status; /* 0? */
-  BITCODE_H readdep;
-  BITCODE_H writedep;
-  BITCODE_BL constraint_status; /* 1? */
-  BITCODE_BL dof;               /* 0-3? */
-  BITCODE_B  is_body_a_proxy;
+  ASSOCACTION_fields;
 
-  BITCODE_BL l5; //90 1
-  BITCODE_B  b1; //70 0
-  BITCODE_3BD workplane[3]; //3x10 workplane
-  BITCODE_H h1; // 360
-  BITCODE_BL num_actions; //90 2
-  BITCODE_H* actions;    // 360
-  BITCODE_BL l7; //90 9
-  BITCODE_BL l8; //90 9
-  BITCODE_T t1; // AcConstrainedCircle
-  BITCODE_H h2; // 330
-  BITCODE_BL cl1; //90 1
-  BITCODE_RC cs1; //70 1
-  BITCODE_BL cl2; //90 1
-  BITCODE_BL cl3; //90 3
-  BITCODE_H h3; // 330
-  BITCODE_BL cl4; //90 0
-  BITCODE_3BD c1; //10 @134
-  BITCODE_3BD c2; //10
-  BITCODE_3BD c3; //10
-  BITCODE_BD w1; //40
-  BITCODE_BD w2; //40
-  BITCODE_BD w3; //40
-  BITCODE_T t2; // AcConstrainedImplicitPoint
+  BITCODE_BL version;
+  BITCODE_B  b1;
+  BITCODE_3BD workplane[3];
+  BITCODE_H h1;
+  BITCODE_BL num_actions;
+  BITCODE_H* actions;
+  BITCODE_BL num_nodes;
+  Dwg_CONSTRAINTGROUPNODE *nodes;
 
   Dwg_Version_Type dwg_version = obj->parent->header.version;
 #ifdef DEBUG_CLASSES
   dwg_obj_assoc2dconstraintgroup *_obj = dwg_object_to_ASSOC2DCONSTRAINTGROUP (obj);
-
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, solution_status, BL, solution_status);
-  CHK_ENTITY_MAX (_obj, ASSOC2DCONSTRAINTGROUP, solution_status, BL, 6);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, geometry_status, BL, geometry_status);
+  // ASSOCACTION
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, class_version, BS);
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, geometry_status, BL);
   CHK_ENTITY_MAX (_obj, ASSOC2DCONSTRAINTGROUP, geometry_status, BL, 10);
-  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, readdep, readdep);
-  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, writedep, writedep);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, constraint_status, BL, constraint_status);
-  CHK_ENTITY_MAX (_obj, ASSOC2DCONSTRAINTGROUP, constraint_status, BL, 10);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, dof, BL, dof);
-  CHK_ENTITY_MAX (_obj, ASSOC2DCONSTRAINTGROUP, dof, BL, 6);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, is_body_a_proxy, B, is_body_a_proxy);
+  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, owningnetwork);
+  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, actionbody);
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, action_index, BL);
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, max_assoc_dep_index, BL);
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, num_deps, BL);
+  for (unsigned i=0; i < num_deps; i++)
+    {
+      CHK_SUBCLASS_TYPE (_obj->deps[i], ASSOCACTION_Deps, is_owned, B);
+      CHK_SUBCLASS_H (_obj->deps[i], ASSOCACTION_Deps, dep);
+    }
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, num_owned_params, BL);
+  CHK_ENTITY_HV (_obj, ASSOC2DCONSTRAINTGROUP, owned_params, num_owned_params);
+  CHK_ENTITY_TYPE (_obj, ASSOCACTION, num_values, BL);
+  CHK_VALUEPARAM (num_values, values);
 
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, l5, BL, l5);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, b1, B , b1);
-  //CHK_ENTITY_3RD (_obj, ASSOC2DCONSTRAINTGROUP, workplane[3], workplane[3]); //3x10 workplane
-  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, h1, h1);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, num_actions, BL, num_actions);
-  CHK_ENTITY_HV (_obj, ASSOC2DCONSTRAINTGROUP, actions, actions, num_actions);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, l7, BL, l7);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, l8, BL, l8);
-  CHK_ENTITY_UTF8TEXT (_obj, ASSOC2DCONSTRAINTGROUP, t1, t1);
-  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, h2, h2);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, cl1, BL, cl1);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, cs1, RC, cs1);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, cl2, BL, cl2);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, cl3, BL, cl3);
-  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, h3, h3);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, cl4, BL, cl4);
-  CHK_ENTITY_3RD (_obj, ASSOC2DCONSTRAINTGROUP, c1, c1);
-  CHK_ENTITY_3RD (_obj, ASSOC2DCONSTRAINTGROUP, c2, c2);
-  CHK_ENTITY_3RD (_obj, ASSOC2DCONSTRAINTGROUP, c3, c3);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, w1, BD, w1);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, w2, BD, w2);
-  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, w3, BD, w3);
-  CHK_ENTITY_UTF8TEXT (_obj, ASSOC2DCONSTRAINTGROUP, t2, t2);
+  // ASSOC2DCONSTRAINTGROUP
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, version, BL);
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, b1, B);
+  //CHK_ENTITY_3RD (_obj, ASSOC2DCONSTRAINTGROUP, workplane[3], &workplane[3][0]); //3x10 workplane
+  CHK_ENTITY_H (_obj, ASSOC2DCONSTRAINTGROUP, h1);
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, num_actions, BL);
+  CHK_ENTITY_HV (_obj, ASSOC2DCONSTRAINTGROUP, actions, num_actions);
+  CHK_ENTITY_TYPE (_obj, ASSOC2DCONSTRAINTGROUP, num_nodes, BL);
+  for (unsigned i=0; i < num_nodes; i++)
+    {
+      CHK_SUBCLASS_TYPE (_obj->nodes[i], CONSTRAINTGROUPNODE, nodeid, BL);
+      CHK_SUBCLASS_TYPE (_obj->nodes[i], CONSTRAINTGROUPNODE, status, RC);
+      CHK_SUBCLASS_TYPE (_obj->nodes[i], CONSTRAINTGROUPNODE, num_connections, BL);
+      for (unsigned j=0; j < _obj->nodes[i].num_connections; j++)
+        {
+          ok ("CONSTRAINTGROUPNODE[%d].connections[%d]: %d", i, j, (int)_obj->nodes[i].connections[j]);
+        }
+    }
+  
 #endif
 }

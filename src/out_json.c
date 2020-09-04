@@ -24,6 +24,7 @@
 #  include <ctype.h>
 #endif
 
+#define IS_JSON
 #include "common.h"
 #include "bits.h"
 #include "myalloca.h"
@@ -36,6 +37,8 @@
 
 /* the current version per spec block */
 static unsigned int cur_ver = 0;
+static BITCODE_BL rcount1, rcount2;
+
 /* see also examples/unknown.c */
 #ifdef HAVE_NATIVE_WCHAR2
 static wchar_t *wcquote (wchar_t *restrict dest, const wchar_t *restrict src);
@@ -55,7 +58,6 @@ static char *_path_field (const char *path);
  */
 
 #define ACTION json
-#define IS_JSON
 
 #define ISFIRST (dat->opts & DWG_OPTS_JSONFIRST)
 #define SETFIRST dat->opts |= DWG_OPTS_JSONFIRST
@@ -183,7 +185,7 @@ static char *_path_field (const char *path);
     VALUE_RD (pt.y, 0);                                                       \
     fprintf (dat->fh, " ]");                                                  \
   }
-#define VALUE_2DD(pt, d1, d2, dxf) VALUE_2RD (pt, dxf)
+#define VALUE_2DD(pt, def, dxf) VALUE_2RD (pt, dxf)
 #define VALUE_3RD(pt, dxf)                                                    \
   {                                                                           \
     fprintf (dat->fh, "[ ");                                                  \
@@ -219,6 +221,7 @@ static char *_path_field (const char *path);
                            _path_field (#nam), _obj->o.nam);                  \
     }
 #define FIELD_CAST(nam, type, cast, dxf) FIELD (nam, cast, dxf)
+#define SUB_FIELD_CAST(o, nam, type, cast, dxf) SUB_FIELD (o, nam, cast, dxf)
 #define FIELD_TRACE(nam, type)
 #define FIELD_G_TRACE(nam, type, dxf)
 #define FIELD_TEXT(nam, str)                                                  \
@@ -237,14 +240,14 @@ static char *_path_field (const char *path);
         if (len < 4096 / 6)                                                   \
           {                                                                   \
             const int _len = 6 * len + 1;                                     \
-            char *_buf = alloca (_len);                                       \
+            char *_buf = (char*)alloca (_len);                                \
             fprintf (dat->fh, "\"%s\"", json_cquote (_buf, str, _len));       \
             freea (_buf);                                                     \
           }                                                                   \
         else                                                                  \
           {                                                                   \
             const int _len = 6 * len + 1;                                     \
-            char *_buf = malloc (_len);                                       \
+            char *_buf = (char*)malloc (_len);                                \
             fprintf (dat->fh, "\"%s\"", json_cquote (_buf, str, _len));       \
             free (_buf);                                                      \
           }                                                                   \
@@ -274,8 +277,10 @@ static char *_path_field (const char *path);
 #  define VALUE_TEXT_TU(wstr) print_wcquote (dat, (BITCODE_TU)wstr)
 #endif
 #define FIELD_TEXT_TU(nam, wstr)                                              \
-  KEY (nam);                                                                  \
-  VALUE_TEXT_TU ((BITCODE_TU)wstr)
+  {                                                                           \
+    KEY (nam);                                                                \
+    VALUE_TEXT_TU ((BITCODE_TU)wstr);                                         \
+  }
 
 #define FIELD_VALUE(nam) _obj->nam
 #define ANYCODE -1
@@ -443,7 +448,7 @@ static char *_path_field (const char *path);
 #define FIELD_T32(nam, dxf) FIELD_T (nam, dxf)
 #define FIELD_T(nam, dxf)                                                     \
   {                                                                           \
-    if (dat->version >= R_2007)                                               \
+    if (IS_FROM_TU (dat))                                                     \
       {                                                                       \
         FIELD_TU (nam, dxf);                                                  \
       }                                                                       \
@@ -454,7 +459,7 @@ static char *_path_field (const char *path);
   }
 #define _FIELD_T(nam, str)                                                    \
   {                                                                           \
-    if (dat->version >= R_2007)                                               \
+    if (IS_FROM_TU (dat))                                                     \
       {                                                                       \
         FIELD_TEXT_TU (nam, str);                                             \
       }                                                                       \
@@ -465,13 +470,13 @@ static char *_path_field (const char *path);
   }
 #define VALUE_T(str)                                                          \
   {                                                                           \
-    if (dat->version >= R_2007)                                               \
+    if (IS_FROM_TU (dat))                                                     \
       {                                                                       \
         VALUE_TEXT_TU (str);                                                  \
       }                                                                       \
     else                                                                      \
       {                                                                       \
-        VALUE_TEXT (str);                                                     \
+        VALUE_TEXT (str)                                                      \
       }                                                                       \
   }
 #define _FIELD_TV_ALPHA(nam, str)                                             \
@@ -485,7 +490,7 @@ static char *_path_field (const char *path);
 #define FIELD_DD(nam, _default, dxf) FIELD_BD (nam, dxf)
 #define FIELD_2BD(nam, dxf) FIELD_2RD (nam, dxf)
 #define FIELD_2BD_1(nam, dxf) FIELD_2RD (nam, dxf)
-#define FIELD_2DD(nam, d1, d2, dxf) FIELD_2RD (nam, dxf)
+#define FIELD_2DD(nam, def, dxf) FIELD_2RD (nam, dxf)
 #define FIELD_3DD(nam, def, dxf) FIELD_3RD (nam, dxf)
 #define FIELD_3BD(nam, dxf) FIELD_3RD (nam, dxf)
 #define FIELD_3BD_1(nam, dxf) FIELD_3RD (nam, dxf)
@@ -493,7 +498,7 @@ static char *_path_field (const char *path);
 
 #define SUB_FIELD_T(o, nam, dxf)                                              \
   {                                                                           \
-    if (dat->version >= R_2007)                                               \
+    if (IS_FROM_TU (dat))                                                     \
       {                                                                       \
         KEY (nam);                                                            \
         VALUE_TEXT_TU ((BITCODE_TU)_obj->o.nam);                              \
@@ -543,12 +548,12 @@ static char *_path_field (const char *path);
   VALUE_3RD (_obj->o.nam, dxf)
 
 static void
-field_cmc (Bit_Chain *restrict dat, const char *restrict key,
+field_cmc (Bit_Chain *dat, const char *restrict key,
            const Dwg_Color *restrict _obj)
 {
   if (dat->version >= R_2004)
     {
-      KEYs (key);
+      KEYs (_path_field(key));
       HASH;
       if (_obj->index)
         {
@@ -557,7 +562,7 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
       FIRSTPREFIX fprintf (dat->fh, "\"rgb\": \"%06x\"", (unsigned)_obj->rgb);
       if (_obj->flag)
         {
-          FIELD_BS (flag, 62);
+          FIELD_BS (flag, 0);
         }
       if (_obj->flag > 0 && _obj->flag < 8)
         {
@@ -575,8 +580,8 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
     }
 }
 
-#define FIELD_CMC(color, dxf1, dxf2) field_cmc (dat, #color, &_obj->color)
-#define SUB_FIELD_CMC(o, color, dxf1, dxf2)                                   \
+#define FIELD_CMC(color, dxf) field_cmc (dat, #color, &_obj->color)
+#define SUB_FIELD_CMC(o, color, dxf)                                          \
   field_cmc (dat, #color, &_obj->o.color)
 
 #define FIELD_TIMEBLL(nam, dxf)                                               \
@@ -607,18 +612,18 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
   if (_obj->nam)                                                              \
     {                                                                         \
       BITCODE_BL _size = (BITCODE_BL)_obj->size;                              \
-      PRE (R_2007)                                                            \
+      if (IS_FROM_TU (dat))                                                   \
       {                                                                       \
         for (vcount = 0; vcount < _size; vcount++)                            \
           {                                                                   \
-            FIRSTPREFIX VALUE_TEXT (_obj->nam[vcount])                        \
+            FIRSTPREFIX VALUE_TEXT_TU (_obj->nam[vcount]);                    \
           }                                                                   \
       }                                                                       \
       else                                                                    \
       {                                                                       \
         for (vcount = 0; vcount < _size; vcount++)                            \
           {                                                                   \
-            FIRSTPREFIX VALUE_TEXT_TU (_obj->nam[vcount]);                    \
+            FIRSTPREFIX VALUE_TEXT (_obj->nam[vcount])                        \
           }                                                                   \
       }                                                                       \
     }                                                                         \
@@ -675,7 +680,7 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
     ARRAY;                                                                    \
     for (vcount = 0; vcount < (BITCODE_BL)_obj->size; vcount++)               \
       {                                                                       \
-        PRINTFIRST; VALUE_2RD (FIELD_VALUE (nam[vcount]), dxf);               \
+        FIRSTPREFIX VALUE_2RD (FIELD_VALUE (nam[vcount]), dxf);                \
       }                                                                       \
     ENDARRAY;                                                                 \
   }
@@ -716,6 +721,23 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
 #define HANDLE_VECTOR(nam, sizefield, code, dxf)                              \
   HANDLE_VECTOR_N (nam, FIELD_VALUE (sizefield), code, dxf)
 
+#define SUB_HANDLE_VECTOR(o, nam, size, code, dxf)                            \
+  KEY (nam);                                                                  \
+  if (_obj->o.nam)                                                            \
+    {                                                                         \
+      ARRAY;                                                                  \
+      for (vcount = 0; vcount < (BITCODE_BL)_obj->o.size; vcount++)           \
+        {                                                                     \
+          SUB_FIELD_HANDLE_N (o, nam[vcount], code, dxf);                     \
+        }                                                                     \
+      ENDARRAY;                                                               \
+    }                                                                         \
+  else                                                                        \
+    {                                                                         \
+      ARRAY;                                                                  \
+      ENDARRAY;                                                               \
+    }
+
 #define REACTORS(code)                                                        \
   if (dat->version >= R_13 && obj->tio.object->num_reactors                   \
       && obj->tio.object->reactors)                                           \
@@ -739,23 +761,6 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
           FIRSTPREFIX VALUE_HANDLE (ent->reactors[vcount], reactors, code, 330);   \
         }                                                                     \
       ENDARRAY;                                                               \
-    }
-
-#define SUB_HANDLE_VECTOR(o, nam, size, code, dxf)                            \
-  KEY (nam);                                                                  \
-  if (_obj->o.nam)                                                            \
-    {                                                                         \
-      ARRAY;                                                                  \
-      for (vcount = 0; vcount < (BITCODE_BL)_obj->o.size; vcount++)           \
-        {                                                                     \
-          SUB_FIELD_HANDLE_N (o, nam[vcount], code, dxf);                     \
-        }                                                                     \
-      ENDARRAY;                                                               \
-    }                                                                         \
-  else                                                                        \
-    {                                                                         \
-      PRINTFIRST;                                                             \
-      fprintf (dat->fh, "[]");                                                \
     }
 
 // violates duplicate keys
@@ -806,7 +811,7 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
   error |= json_xdata (dat, _obj)
 
 #define XDICOBJHANDLE(code)                                                   \
-  if ((dat->version < R_2004 || obj->tio.object->xdic_missing_flag != 0)      \
+  if ((dat->version < R_2004 || obj->tio.object->is_xdic_missing != 0)      \
       && (obj->tio.object->xdicobjhandle != NULL)                             \
       && (obj->tio.object->xdicobjhandle->handleref.value != 0))              \
     {                                                                         \
@@ -814,7 +819,7 @@ field_cmc (Bit_Chain *restrict dat, const char *restrict key,
       VALUE_HANDLE (obj->tio.object->xdicobjhandle, xdicobjhandle, code, -3); \
     }
 #define ENT_XDICOBJHANDLE(code)                                               \
-  if ((dat->version < R_2004 || (ent->xdic_missing_flag != 0))                \
+  if ((dat->version < R_2004 || (ent->is_xdic_missing != 0))                \
       && (ent->xdicobjhandle != NULL)                                         \
       && (ent->xdicobjhandle->handleref.value != 0))                          \
     {                                                                         \
@@ -840,11 +845,13 @@ _prefix (Bit_Chain *dat)
 }
 
 #define DWG_ENTITY(token)                                                     \
+  static int dwg_json_##token##_private (                                     \
+      Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,                 \
+      Dwg_Object *restrict obj);                                              \
   GCC30_DIAG_IGNORE (-Wshadow)                                                \
   static int dwg_json_##token (Bit_Chain *restrict dat,                       \
                                Dwg_Object *restrict obj)                      \
   {                                                                           \
-    BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4;                    \
     int error = 0;                                                            \
     Bit_Chain *str_dat = dat;                                                 \
     Bit_Chain *hdl_dat = dat;                                                 \
@@ -869,21 +876,34 @@ _prefix (Bit_Chain *dat)
     _FIELD (bitsize, BL, 0);                                                  \
     if (_ent->preview_exists)                                                 \
       ENT_FIELD (preview_exists, B, 0);                                       \
-    error |= json_common_entity_data (dat, obj);
+    error |= json_common_entity_data (dat, obj);                              \
+    return error | dwg_json_##token##_private (dat, hdl_dat, str_dat, obj);   \
+  }                                                                           \
+  static int dwg_json_##token##_private (                                     \
+        Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,               \
+        Dwg_Object *restrict obj)                                             \
+  {                                                                           \
+    int error = 0;                                                            \
+    BITCODE_BL vcount, rcount3, rcount4;                                      \
+    Dwg_Data *dwg = obj->parent;                                              \
+    Dwg_Object_Entity *_ent = obj->tio.entity;                                \
+    Dwg_Entity_##token *_obj = _ent->tio.token;
 
 #define DWG_ENTITY_END                                                        \
-  return 0;                                                                   \
+    return error;                                                             \
   }
 
 #define DWG_OBJECT(token)                                                     \
+  static int dwg_json_##token##_private (                                     \
+      Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,                 \
+      Dwg_Object *restrict obj);                                              \
   GCC30_DIAG_IGNORE (-Wshadow)                                                \
   static int dwg_json_##token (Bit_Chain *restrict dat,                       \
                                Dwg_Object *restrict obj)                      \
   {                                                                           \
-    BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4;                    \
     int error = 0;                                                            \
+    Bit_Chain *str_dat = dat;                                                 \
     Bit_Chain *hdl_dat = dat;                                                 \
-    Dwg_Data *dwg = obj->parent;                                              \
     const char *name = #token;                                                \
     Dwg_Object_##token *_obj;                                                 \
     LOG_INFO ("Object "#token ":\n")                                          \
@@ -901,10 +921,20 @@ _prefix (Bit_Chain *dat)
     _FIELD (size, RL, 0);                                                     \
     _FIELD (bitsize, BL, 0);                                                  \
     error |= json_eed (dat, obj->tio.object);                                 \
-    error |= json_common_object_handle_data (dat, obj);
+    error |= json_common_object_handle_data (dat, obj);                       \
+    return error | dwg_json_##token##_private (dat, hdl_dat, str_dat, obj);   \
+  }                                                                           \
+  static int dwg_json_##token##_private (                                     \
+        Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,               \
+        Dwg_Object *restrict obj)                                             \
+  {                                                                           \
+    int error = 0;                                                            \
+    BITCODE_BL vcount, rcount3, rcount4;                                      \
+    Dwg_Data *dwg = obj->parent;                                              \
+    Dwg_Object_##token *_obj = obj->tio.object->tio.token;
 
 #define DWG_OBJECT_END                                                        \
-  return 0;                                                                   \
+    return 0;                                                                 \
   }
 
 #undef JSON_3DSOLID
@@ -912,10 +942,10 @@ _prefix (Bit_Chain *dat)
 
 static char* _path_field(const char *path)
 {
-  char *s = strrchr (path, ']');
+  const char *s = strrchr (path, ']');
   if (s && s[1] == '.')
     {
-      return &s[2];
+      return (char*)&s[2];
     }
   return (char*)path;
 }
@@ -947,17 +977,16 @@ json_eed (Bit_Chain *restrict dat,
           switch (data->code)
             {
             case 0:
-              PRE (R_2007) {
-                VALUE_TEXT (data->u.eed_0.string);
-              }
-              LATER_VERSIONS {
-                VALUE_TEXT_TU (data->u.eed_0.string);
+              if (!(IS_FROM_TU (dat)))
+                VALUE_TEXT (data->u.eed_0.string)
+              else {
+                VALUE_TEXT_TU (data->u.eed_0_r2007.string);
               }
               break;
             case 2: VALUE_RC (data->u.eed_2.byte, 0); break;
             case 3: VALUE_RL (data->u.eed_3.layer, 0); break;
             case 4: VALUE_BINARY (data->u.eed_4.data, data->u.eed_4.length, 0); break;
-            case 5: VALUE_RLL (data->u.eed_5.entity, 0); break;
+            case 5: fprintf (dat->fh, FORMAT_H "", 5, data->u.eed_5.entity); break;
             case 10:
             case 11:
             case 12:
@@ -989,69 +1018,68 @@ json_xdata (Bit_Chain *restrict dat, const Dwg_Object_XRECORD *restrict obj)
   ARRAY;
   for (BITCODE_BL i = 0; i < obj->num_xdata; i++)
     {
-      enum RES_BUF_VALUE_TYPE type;
+      enum RESBUF_VALUE_TYPE type;
       FIRSTPREFIX ARRAY;
       FIRSTPREFIX VALUE_RS (rbuf->type, 0);
       FIRSTPREFIX
-      type = get_base_value_type (rbuf->type);
+      type = dwg_resbuf_value_type (rbuf->type);
       switch (type)
         {
-        case VT_STRING:
-          PRE (R_2007) {
-            VALUE_TEXT (rbuf->value.str.u.data);
-          }
-          LATER_VERSIONS {
+        case DWG_VT_STRING:
+          if (!(IS_FROM_TU (dat)))
+            VALUE_TEXT (rbuf->value.str.u.data)
+          else {
             VALUE_TEXT_TU (rbuf->value.str.u.data);
           }
           LOG_TRACE ("xdata[%u]: \"%s\" [TV %d]\n", i, rbuf->value.str.u.data,
                      rbuf->type);
           break;
-        case VT_BINARY:
+        case DWG_VT_BINARY:
           VALUE_BINARY (rbuf->value.str.u.data, rbuf->value.str.size, 0);
           LOG_TRACE ("xdata[%u]: \"%s\" [TF %d]\n", i, rbuf->value.str.u.data,
                      rbuf->type);
           break;
-        case VT_REAL:
+        case DWG_VT_REAL:
           VALUE_RD (rbuf->value.dbl, 0);
           LOG_TRACE ("xdata[%u]: %f [RD %d]\n", i, rbuf->value.dbl,
                      rbuf->type);
           break;
-        case VT_BOOL:
-        case VT_INT8:
+        case DWG_VT_BOOL:
+        case DWG_VT_INT8:
           VALUE_RC (rbuf->value.i8, 0);
           LOG_TRACE ("xdata[%u]: %d [RC %d]\n", i, (int)rbuf->value.i8,
                      rbuf->type);
           break;
-        case VT_INT16:
+        case DWG_VT_INT16:
           VALUE_RS (rbuf->value.i16, 0);
           LOG_TRACE ("xdata[%u]: %d [RS %d]\n", i, (int)rbuf->value.i16,
                      rbuf->type);
           break;
-        case VT_INT32:
+        case DWG_VT_INT32:
           VALUE_RL (rbuf->value.i32, 0);
           LOG_TRACE ("xdata[%u]: %d [RL %d]\n", i, (int)rbuf->value.i32,
                      rbuf->type);
           break;
-        case VT_INT64:
+        case DWG_VT_INT64:
           VALUE_RLL (rbuf->value.i64, 0);
           LOG_TRACE ("xdata[%u]: %ld [RLL %d]\n", i, (long)rbuf->value.i64,
                      rbuf->type);
           break;
-        case VT_POINT3D:
+        case DWG_VT_POINT3D:
           fprintf (dat->fh, "[ " FORMAT_RD ", " FORMAT_RD ", " FORMAT_RD " ]",
                    rbuf->value.pt[0], rbuf->value.pt[1], rbuf->value.pt[2]);
           LOG_TRACE ("xdata[%u]: (%f,%f,%f) [3RD %d]\n", i, rbuf->value.pt[0],
                      rbuf->value.pt[1], rbuf->value.pt[2], rbuf->type);
           break;
-        case VT_HANDLE:
-        case VT_OBJECTID:
+        case DWG_VT_HANDLE:
+        case DWG_VT_OBJECTID:
           fprintf (dat->fh, FORMAT_H "", ARGS_H (rbuf->value.h));
           break;
-        case VT_INVALID:
+        case DWG_VT_INVALID:
         default:
           break;
         }
-      rbuf = rbuf->next;
+      rbuf = rbuf->nextrb;
       ENDARRAY
     }
   ENDARRAY;
@@ -1284,7 +1312,7 @@ json_3dsolid (Bit_Chain *restrict dat, const Dwg_Object *restrict obj,
               Dwg_Entity_3DSOLID *restrict _obj)
 {
   Dwg_Data *dwg = obj->parent;
-  BITCODE_BL vcount, rcount1, rcount2;
+  BITCODE_BL vcount;
   BITCODE_BL i;
   int error = 0;
 
@@ -1301,7 +1329,7 @@ json_3dsolid (Bit_Chain *restrict dat, const Dwg_Object *restrict obj,
         {
           FIRSTPREFIX fprintf (dat->fh, "\"\"");
         }
-      else
+      else if (_obj->version < 2)
         { // split lines by \n
           for (; *p; p++)
             {
@@ -1318,14 +1346,22 @@ json_3dsolid (Bit_Chain *restrict dat, const Dwg_Object *restrict obj,
               FIRSTPREFIX VALUE_TEXT (s);
             }
         }
-      ENDARRAY;
-      KEY (encr_sat_data);
-      ARRAY;
-      for (i = 0; i < FIELD_VALUE (num_blocks); i++)
+      else // version 2, SAB. split into two lines for easier identification
         {
-          FIRSTPREFIX VALUE_BINARY (FIELD_VALUE (encr_sat_data[i]), FIELD_VALUE (block_size[i]), 1);
+          FIRSTPREFIX fprintf (dat->fh, "\"%.*s\"", 15, _obj->acis_data);
+          FIRSTPREFIX VALUE_BINARY (&_obj->acis_data[15], _obj->sab_size - 15, 1);
         }
       ENDARRAY;
+      if (_obj->encr_sat_data) // dxfin/out may create this for SAB
+        {
+          KEY (encr_sat_data);
+          ARRAY;
+          for (i = 0; i < FIELD_VALUE (num_blocks); i++)
+            {
+              FIRSTPREFIX VALUE_BINARY (FIELD_VALUE (encr_sat_data[i]), FIELD_VALUE (block_size[i]), 1);
+            }
+          ENDARRAY;
+        }
 
       FIELD_B (wireframe_data_present, 0);
       if (FIELD_VALUE (wireframe_data_present))
@@ -1354,13 +1390,17 @@ json_3dsolid (Bit_Chain *restrict dat, const Dwg_Object *restrict obj,
                   SUB_FIELD_3BD (silhouettes[rcount1], vp_dir_from_target, 0);
                   SUB_FIELD_3BD (silhouettes[rcount1], vp_up_dir, 0);
                   SUB_FIELD_B (silhouettes[rcount1], vp_perspective, 0);
-                  SUB_FIELD_BL (silhouettes[rcount1], num_wires, 0);
-                  REPEAT2 (silhouettes[rcount1].num_wires, silhouettes[rcount1].wires, Dwg_3DSOLID_wire)
-                  REPEAT_BLOCK
-                      WIRESTRUCT_fields (silhouettes[rcount1].wires[rcount2])
-                  END_REPEAT_BLOCK
-                  SET_PARENT_OBJ (silhouettes[rcount1].wires)
-                  END_REPEAT (silhouettes[rcount1].wires);
+                  SUB_FIELD_B (silhouettes[rcount1], has_wires, 0);
+                  if (_obj->silhouettes[rcount1].has_wires)
+                    {
+                      SUB_FIELD_BL (silhouettes[rcount1], num_wires, 0);
+                      REPEAT2 (silhouettes[rcount1].num_wires, silhouettes[rcount1].wires, Dwg_3DSOLID_wire)
+                      REPEAT_BLOCK
+                          WIRESTRUCT_fields (silhouettes[rcount1].wires[rcount2])
+                      END_REPEAT_BLOCK
+                      SET_PARENT_OBJ (silhouettes[rcount1].wires)
+                      END_REPEAT (silhouettes[rcount1].wires);
+                    }
               END_REPEAT_BLOCK
               SET_PARENT_OBJ (silhouettes)
               END_REPEAT (silhouettes);
@@ -1368,10 +1408,29 @@ json_3dsolid (Bit_Chain *restrict dat, const Dwg_Object *restrict obj,
         }
 
       FIELD_B (acis_empty_bit, 0);
-      if (FIELD_VALUE (version) > 1)
-        {
-          SINCE (R_2007) { FIELD_BL (unknown_2007, 0); }
+      if (FIELD_VALUE (version) > 1) {
+        SINCE (R_2007) {
+          FIELD_BL (num_materials, 0);
+          REPEAT (num_materials, materials, Dwg_3DSOLID_material)
+          REPEAT_BLOCK
+              SUB_FIELD_BL (materials[rcount1], array_index, 0);
+              SUB_FIELD_BL (materials[rcount1], mat_absref, 0);   /* ?? */
+              SUB_FIELD_HANDLE (materials[rcount1], material_handle, 5, 0);
+          END_REPEAT_BLOCK
+          SET_PARENT (materials, (Dwg_Entity__3DSOLID*)_obj)
+          END_REPEAT (materials);
         }
+      }
+      SINCE (R_2013) {
+        FIELD_B (has_revision_guid, 290);
+        FIELD_BL (revision_major, 0);
+        FIELD_BS (revision_minor1, 0);
+        FIELD_BS (revision_minor2, 0);
+        FIELD_TFFx (revision_bytes, 8, 0);
+        dxf_3dsolid_revisionguid ((Dwg_Entity_3DSOLID*)_obj);
+        FIELD_TV (revision_guid, 0);
+        FIELD_BL (end_marker, 0);
+      }
       COMMON_ENTITY_HANDLE_DATA;
       if (FIELD_VALUE (version) > 1)
         {
@@ -1539,10 +1598,10 @@ dwg_json_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj)
       return dwg_json_DIMSTYLE_CONTROL (dat, obj);
     case DWG_TYPE_DIMSTYLE:
       return dwg_json_DIMSTYLE (dat, obj);
-    case DWG_TYPE_VPORT_ENTITY_CONTROL:
-      return dwg_json_VPORT_ENTITY_CONTROL (dat, obj);
-    case DWG_TYPE_VPORT_ENTITY_HEADER:
-      return dwg_json_VPORT_ENTITY_HEADER (dat, obj);
+    case DWG_TYPE_VX_CONTROL:
+      return dwg_json_VX_CONTROL (dat, obj);
+    case DWG_TYPE_VX_TABLE_RECORD:
+      return dwg_json_VX_TABLE_RECORD (dat, obj);
     case DWG_TYPE_GROUP:
       return dwg_json_GROUP (dat, obj);
     case DWG_TYPE_MLINESTYLE:
@@ -1563,6 +1622,8 @@ dwg_json_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj)
       return dwg_json_PLACEHOLDER (dat, obj);
     case DWG_TYPE_PROXY_ENTITY:
       return dwg_json_PROXY_ENTITY (dat, obj);
+    case DWG_TYPE_PROXY_OBJECT:
+      return dwg_json_PROXY_OBJECT (dat, obj);
     case DWG_TYPE_OLEFRAME:
       return dwg_json_OLEFRAME (dat, obj);
     case DWG_TYPE_VBA_PROJECT:
@@ -1637,7 +1698,7 @@ dwg_json_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj)
 static int
 json_fileheader_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_Header *_obj = &dwg->header;
+  Dwg_Header *_obj = &dwg->header;
   Dwg_Object *obj = NULL;
   int i;
 
@@ -1776,10 +1837,9 @@ json_section_r2004fileheader (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_summary (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_SummaryInfo *_obj = &dwg->summaryinfo;
+  Dwg_SummaryInfo *_obj = &dwg->summaryinfo;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (SummaryInfo); // single hash
   // clang-format off
@@ -1792,10 +1852,9 @@ json_section_summary (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_vbaproject (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_VBAProject *_obj = &dwg->vbaproject;
+  Dwg_VBAProject *_obj = &dwg->vbaproject;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (VBAProject); // single hash
   HASH;
@@ -1809,10 +1868,9 @@ json_section_vbaproject (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_appinfo (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_AppInfo *_obj = &dwg->appinfo;
+  Dwg_AppInfo *_obj = &dwg->appinfo;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (AppInfo); // single hash
   // clang-format off
@@ -1825,10 +1883,9 @@ json_section_appinfo (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_appinfohistory (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_AppInfoHistory *_obj = &dwg->appinfohistory;
+  Dwg_AppInfoHistory *_obj = &dwg->appinfohistory;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (AppInfoHistory); // single hash
   FIRSTPREFIX fprintf (dat->fh, "\"size\": %d", _obj->size);
@@ -1843,10 +1900,10 @@ json_section_appinfohistory (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_filedeplist (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_FileDepList *_obj = &dwg->filedeplist;
+  Dwg_FileDepList *_obj = &dwg->filedeplist;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL vcount, rcount1;
+  BITCODE_RL vcount;
 
   RECORD (FileDepList); // single hash
   // clang-format off
@@ -1859,10 +1916,9 @@ json_section_filedeplist (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_security (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_Security *_obj = &dwg->security;
+  Dwg_Security *_obj = &dwg->security;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (Security); // single hash
   // clang-format off
@@ -1875,7 +1931,7 @@ json_section_security (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_revhistory (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_RevHistory *_obj = &dwg->revhistory;
+  Dwg_RevHistory *_obj = &dwg->revhistory;
   Dwg_Object *obj = NULL;
   int error = 0;
   BITCODE_RL vcount;
@@ -1892,10 +1948,9 @@ json_section_revhistory (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_objfreespace (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_ObjFreeSpace *_obj = &dwg->objfreespace;
+  Dwg_ObjFreeSpace *_obj = &dwg->objfreespace;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (ObjFreeSpace); // single hash
   // clang-format off
@@ -1908,10 +1963,10 @@ json_section_objfreespace (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_acds (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_AcDs *_obj = &dwg->acds;
+  Dwg_AcDs *_obj = &dwg->acds;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1, rcount2, rcount3 = 0, rcount4, vcount;
+  BITCODE_RL rcount3 = 0, rcount4, vcount;
 
   RECORD (AcDs); // single hash
   {
@@ -1926,10 +1981,9 @@ json_section_acds (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_template (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_Template *_obj = &dwg->template;
+  Dwg_Template *_obj = &dwg->Template;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (Template); // single hash. i.e MEASUREMENT metric/imperial
   // clang-format off
@@ -1942,10 +1996,10 @@ json_section_template (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 static int
 json_section_auxheader (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  struct Dwg_AuxHeader *_obj = &dwg->auxheader;
+  Dwg_AuxHeader *_obj = &dwg->auxheader;
   Dwg_Object *obj = NULL;
   int error = 0, i;
-  BITCODE_RL vcount, rcount1;
+  BITCODE_RL vcount;
 
   RECORD (AuxHeader); // single hash
   // clang-format off
@@ -1962,7 +2016,6 @@ json_section_signature (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
   struct Dwg_Signature *_obj = &dwg->signature;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (Signature); // single hash
   // clang-format off
@@ -1978,7 +2031,6 @@ json_section_2ndheader (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
   struct _dwg_second_header *_obj = &dwg->second_header;
   Dwg_Object *obj = NULL;
   int error = 0;
-  BITCODE_RL rcount1;
 
   RECORD (SecondHeader); // single hash
   HASH;
@@ -1994,7 +2046,7 @@ EXPORT int
 dwg_write_json (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
   const int minimal = dwg->opts & DWG_OPTS_MINIMAL;
-  struct Dwg_Header *obj = &dwg->header;
+  Dwg_Header *obj = &dwg->header;
   int error = 0;
 
   fprintf (dat->fh, "{\n  \"created_by\": \"%s\"", PACKAGE_STRING);

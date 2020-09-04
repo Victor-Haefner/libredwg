@@ -34,6 +34,12 @@
 #include "logging.h"
 #include "suffix.inc"
 
+#ifdef __AFL_COMPILER
+#include "decode.h"
+#include "encode.h"
+#include "in_dxf.h"
+#endif
+
 static int help (void);
 
 static int opts = 1;
@@ -64,7 +70,7 @@ help (void)
   printf ("Default DWGFILE: DXFFILE with .dwg extension in the current "
           "directory.\n"
           "Existing files are not overwritten, unless -y is given.\n"
-          "Encoding currently only works for R13-R2000, dxf2dwg is highly "
+          "Encoding currently only works for R13-R2000, dxf2dwg is "
           "experimental.\n"
           "\n");
 #ifdef HAVE_GETOPT_LONG
@@ -104,6 +110,57 @@ __asan_default_options (void)
 {
   return "detect_leaks=0";
 }
+#endif
+
+#ifdef __AFL_COMPILER
+__AFL_FUZZ_INIT();
+int main (int argc, char *argv[])
+{
+  Dwg_Data dwg;
+  Bit_Chain dat = { NULL, 0, 0, 0, 0 };
+  Bit_Chain out_dat = { NULL, 0, 0, 0, 0 };
+  FILE *fp;
+  struct stat attrib;
+
+  __AFL_INIT();
+  //dat.opts = 3;
+
+  while (__AFL_LOOP(10000)) { // llvm_mode persistent, non-forking mode
+#if 1 // fastest mode via shared mem (10x faster)
+    dat.chain = __AFL_FUZZ_TESTCASE_BUF;
+    dat.size = __AFL_FUZZ_TESTCASE_LEN;
+    printf ("Fuzzing in_dxf + encode from shmem (%lu)\n", dat.size);
+#elif 0 // still 10x faster than the old file-forking fuzzer.
+    /* from stdin: */
+    dat.size = 0;
+    //dat.chain = NULL;
+    dat_read_stream (&dat, stdin);
+    printf ("Fuzzing in_dxf + encode from stdin (%lu)\n", dat.size);
+#else
+    /* else from file */
+    fp = fopen (argv[1], "rb");
+    if (!fp)
+      return 0;
+    dat.size = 0;
+    dat_read_file (&dat, fp, argv[1]);
+    fclose (fp);
+    printf ("Fuzzing in_dxf + encode from file (%lu)\n", dat.size);
+#endif
+
+    if (dat.size < 100) continue;  // useful minimum input length
+    if (dwg_read_dxf (&dat, &dwg) <= DWG_ERR_CRITICAL) {
+      memset (&out_dat, 0, sizeof (out_dat));
+      bit_chain_set_version (&out_dat, &dat);
+      out_dat.version = R_2000;      
+      dwg_encode (&dwg, &out_dat);
+      free (out_dat.chain);
+      dwg_free (&dwg);
+    }
+  }
+  dwg_free (&dwg);
+}
+#define main orig_main
+int orig_main (int argc, char *argv[]);
 #endif
 
 int
@@ -250,7 +307,8 @@ main (int argc, char *argv[])
         }
 
       dwg.opts = opts;
-      printf ("Warning: dxf2dwg is still highly experimental.\n");
+      dwg.header.version = dwg_version;
+      printf ("Warning: dxf2dwg is still experimental.\n");
       printf ("Reading DXF file %s\n", filename_in);
       error = dxf_read_file (filename_in, &dwg);
       if (error >= DWG_ERR_CRITICAL)
@@ -272,8 +330,9 @@ main (int argc, char *argv[])
         }
       else
         {
-          // FIXME: for now only R_2000. later remove this line.
-          dwg.header.version = dwg_version;
+          // FIXME: for now only R_13 - R_2000. later remove this line.
+          if (dwg.header.from_version < R_13 || dwg.header.from_version >= R_2004)
+            dwg.header.version = dwg_version;
           if (dwg.header.from_version == R_INVALID)
             dwg.header.from_version = dwg.header.version;
           printf ("\n");

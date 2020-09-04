@@ -4,31 +4,27 @@
   //Dwg_Object_Entity* _obj = ent;
 
   // p20.4.1
-  {
-    // unsigned long pos = bit_position(dat);
+  SINCE (R_13) {
     FIELD_B (preview_exists, 0);
     if (ent->preview_exists)
       {
-        int dxf = 160;
-        // or DXF 92 for all PROXY vector preview data with klass->is_zombie
+        // was DXF 160 (used for block previews?).
+        // 92 also for all PROXY vector preview data with klass->is_zombie
+#ifdef IS_DECODER
         if (obj->klass && obj->klass->is_zombie)
-          {
-            dxf = 92;
-            DECODER {
-              ent->preview_is_proxy = 1;
-            }
-          }
-#if defined(IS_JSON) || defined(IS_PRINT)
+          ent->preview_is_proxy = 1;
+#endif
+#if defined(IS_JSON)
         FIELD_B (preview_is_proxy, 0);
-        FIELD_BLL (preview_size, dxf);
+        FIELD_BLL (preview_size, 0);
 #else
         VERSIONS (R_13, R_2007)
           {
-            FIELD_CAST (preview_size, RL, BLL, dxf);
+            FIELD_CAST (preview_size, RL, BLL, 92);
           }
         SINCE (R_2010)
           {
-            FIELD_BLL (preview_size, dxf);
+            FIELD_BLL (preview_size, 160);
           }
 #endif
         if ((int)ent->preview_size >= 0 && ent->preview_size < 210210)
@@ -40,7 +36,6 @@
           {
             LOG_ERROR ("Invalid preview_size: %lu kB",
                       (unsigned long)(ent->preview_size / 1000));
-            //bit_set_position(dat, pos+1);
             error |= DWG_ERR_VALUEOUTOFBOUNDS;
           }
 #endif
@@ -79,12 +74,14 @@
   VERSIONS (R_13, R_14) //ODA bug
     {
       FIELD_B (isbylayerlt, 0);
+#ifdef IS_DECODER
       if (FIELD_VALUE (isbylayerlt))
         FIELD_VALUE (ltype_flags) = FIELD_VALUE (isbylayerlt) ? 0 : 3;
+#endif
     }
   SINCE (R_2004) //ODA bug
     {
-      FIELD_B (xdic_missing_flag, 0);
+      FIELD_B (is_xdic_missing, 0);
     }
   PRE (R_2004) //ODA bug
     {
@@ -92,7 +89,15 @@
     }
   SINCE (R_2013)
     {
-      FIELD_B (has_ds_binary_data, 0)
+      FIELD_B (has_ds_data, 0);
+#ifdef IS_DECODER
+      if (_obj->has_ds_data && dwg_obj_is_3dsolid (obj))
+        {
+          // not global, needs to be freed individually. (SHIFT_HV)
+          BITCODE_H ref = dwg_add_handleref_free (5, obj->handle.value);
+          PUSH_HV (obj->parent, num_acis_sab_hdl, acis_sab_hdl, ref);
+        }
+#endif
     }
 
   // no ENC type as it's only used once, here, and we would need to write
@@ -110,27 +115,27 @@
       } else {
         FIELD_BSx (color.raw, 0);
       }
-      DECODER {
-        ent->color.flag = ent->color.raw >> 8;
-        ent->color.index = ent->color.raw & 0x1ff; // 256 / -1 needed for ByLayer
-        ent->color.rgb = 0L;
-        if (ent->color.index != ent->color.raw)
-          LOG_TRACE (" color.index: %d [ENC 62]\n", ent->color.index);
-        if (ent->color.flag > 1)
-          LOG_TRACE (" color.flag: 0x%x [ENC]\n", ent->color.flag);
-      }
+#ifdef IS_DECODER
+      ent->color.flag = ent->color.raw >> 8;
+      ent->color.index = ent->color.raw & 0x1ff; // 256 / -1 needed for ByLayer
+      ent->color.rgb = 0L;
+      if (ent->color.index != ent->color.raw)
+        LOG_TRACE (" color.index: %d [ENC 62]\n", ent->color.index);
+      if (ent->color.flag > 1)
+        LOG_TRACE (" color.flag: 0x%x [ENC]\n", ent->color.flag);
+#endif
       flags = ent->color.flag;
       if (flags & 0x20)
         {
 #ifndef IS_DXF
           FIELD_BLx (color.alpha, 0);
 #endif
-          DECODER {
-            /* 0 BYLAYER, 1 BYBLOCK, 3 alpha */
-            ent->color.alpha_type = ent->color.alpha >> 24;
-            ent->color.alpha = ent->color.alpha & 0xFF;
-            LOG_TRACE (" color.alpha_type: %d [ENV 440]\n", ent->color.alpha_type);
-          }
+#ifdef IS_DECODER
+          /* 0 BYLAYER, 1 BYBLOCK, 3 alpha */
+          ent->color.alpha_type = ent->color.alpha >> 24;
+          ent->color.alpha = ent->color.alpha & 0xFF;
+          LOG_TRACE (" color.alpha_type: %d [ENV 440]\n", ent->color.alpha_type);
+#endif
           JSON {
             FIELD_BB (color.alpha_type, 0);
           }
@@ -151,7 +156,7 @@
         {
           FIELD_TV (color.name, 430);
         }
-      else if ((flags & 0x42) == 0x42)
+      if ((flags & 0x42) == 0x42)
         {
           FIELD_TV (color.book_name, 430);
         }
@@ -162,15 +167,16 @@
       }
 #endif
     }
-  OTHER_VERSIONS
-    FIELD_CMC (color, 62,420);
-
-  DXF {
-    if (FIELD_VALUE (ltype_scale) != 1.0)
-      FIELD_BD (ltype_scale, 48);
-  } else {
-    FIELD_BD (ltype_scale, 48);
+  OTHER_VERSIONS {
+    DXF {
+      if (ent->color.index != 256) // not bylayer
+        FIELD_BS (color.index, 62);
+    }
+    else
+      FIELD_CMC (color, 62);
   }
+
+  FIELD_BD1 (ltype_scale, 48);
   SINCE (R_2000)
     {
       // 00 BYLAYER, 01 BYBLOCK, 10 CONTINUOUS, 11 ltype handle
@@ -185,7 +191,7 @@
         if (FIELD_VALUE (material_flags))
           FIELD_HANDLE (material, 0, 347)
       }
-      FIELD_RC (shadow_flags, 284); /* r2007+: 0 both, 1 casts, 2, receives, 3 no */
+      FIELD_RC (shadow_flags, 284); /* r2007+: 0 both, 1 receives, 2 casts, 3 no */
     }
   SINCE (R_2010)
     {

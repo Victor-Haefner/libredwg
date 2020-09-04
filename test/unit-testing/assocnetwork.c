@@ -1,4 +1,3 @@
-// TODO DEBUGGING
 #define DWG_TYPE DWG_TYPE_ASSOCNETWORK
 #include "common.c"
 
@@ -7,46 +6,56 @@ api_process (dwg_object *obj)
 {
   int error;
   // ASSOCACTION
-  BITCODE_BL solution_status;
+  BITCODE_BS class_version;
   BITCODE_BL geometry_status;
-  BITCODE_H readdep;
-  BITCODE_H writedep;
-  BITCODE_BL constraint_status;
-  BITCODE_BL dof;
-  BITCODE_B  is_body_a_proxy;
-
-  BITCODE_BL unknown_assoc;
-  BITCODE_BL unknown_n1;
-  BITCODE_BL unknown_n2;
+  BITCODE_H owningnetwork;
+  BITCODE_H actionbody;
+  BITCODE_BL action_index;
+  BITCODE_BL max_assoc_dep_index;
+  BITCODE_BL num_deps;
+  BITCODE_BL num_owned_params;
+  BITCODE_H *owned_params;
+  BITCODE_BL num_values;
+  Dwg_VALUEPARAM *values;
+  // ASSOCNETWORK
+  BITCODE_BS network_version;
+  BITCODE_BL network_action_index;
   BITCODE_BL num_actions;
-  BITCODE_H* actions;
+  Dwg_ASSOCACTION_Deps *actions;
+  BITCODE_BL num_owned_actions;
+  BITCODE_H *owned_actions;
 
   Dwg_Version_Type dwg_version = obj->parent->header.version;
-#ifdef DEBUG_CLASSES
   dwg_obj_assocnetwork *_obj = dwg_object_to_ASSOCNETWORK (obj);
 
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, solution_status, BL, solution_status);
-  CHK_ENTITY_MAX (_obj, ASSOCNETWORK, solution_status, BL, 6);
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, geometry_status, BL, geometry_status);
+  // ASSOCACTION
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, class_version, BS);
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, geometry_status, BL);
   CHK_ENTITY_MAX (_obj, ASSOCNETWORK, geometry_status, BL, 10);
-  CHK_ENTITY_H (_obj, ASSOCNETWORK, readdep, readdep);
-  CHK_ENTITY_H (_obj, ASSOCNETWORK, writedep, writedep);
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, constraint_status, BL, constraint_status);
-  CHK_ENTITY_MAX (_obj, ASSOCNETWORK, constraint_status, BL, 10);
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, dof, BL, dof);
-  CHK_ENTITY_MAX (_obj, ASSOCNETWORK, dof, BL, 6);
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, is_body_a_proxy, B, is_body_a_proxy);
-
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, unknown_assoc, BL, unknown_assoc);
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, unknown_n1, BL, unknown_n1);
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, unknown_n2, BL, unknown_n2);
-  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, num_actions, BL, num_actions);
-  CHK_ENTITY_MAX (_obj, ASSOCNETWORK, num_actions, BL, 5000);
-  if (!dwg_dynapi_entity_value (_obj, "ASSOCNETWORK", "actions", &actions, NULL))
-    fail ("ASSOCNETWORK.actions");
-  for (BITCODE_BL i = 0; i < num_actions; i++)
+  CHK_ENTITY_H (_obj, ASSOCNETWORK, owningnetwork);
+  CHK_ENTITY_H (_obj, ASSOCNETWORK, actionbody);
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, action_index, BL);
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, max_assoc_dep_index, BL);
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, num_deps, BL);
+  for (unsigned i=0; i < num_deps; i++)
     {
-      ok ("ASSOCNETWORK.actions[%d]: " FORMAT_REF, i, ARGS_REF (actions[i]));
+      CHK_SUBCLASS_TYPE (_obj->deps[i], ASSOCACTION_Deps, is_owned, B);
+      CHK_SUBCLASS_H (_obj->deps[i], ASSOCACTION_Deps, dep);
     }
-#endif
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, num_owned_params, BL);
+  CHK_ENTITY_HV (_obj, ASSOCNETWORK, owned_params, num_owned_params);
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, num_values, BL);
+  CHK_VALUEPARAM (num_values, values);
+  
+  // ASSOCNETWORK
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, network_version, BL);
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, network_action_index, BL);
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, num_actions, BL);
+  for (unsigned i=0; i < num_actions; i++)
+    {
+      CHK_SUBCLASS_TYPE (_obj->actions[i], ASSOCACTION_Deps, is_owned, B);
+      CHK_SUBCLASS_H (_obj->actions[i], ASSOCACTION_Deps, dep);
+    }
+  CHK_ENTITY_TYPE (_obj, ASSOCNETWORK, num_owned_actions, BL);
+  CHK_ENTITY_HV (_obj, ASSOCNETWORK, owned_actions, num_owned_actions);
 }

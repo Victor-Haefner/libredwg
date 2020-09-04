@@ -38,7 +38,8 @@ top_builddir="@top_builddir@"
 CFLAGS="@CFLAGS@"
 
 i=0
-rm -f ./*dwg*.log
+rm -f ./*-dxf*.log ./*-read,.log ./*-write.log ./*-json.log ./*-rw.log
+rm -f ./*-bmp.log ./*-grep.log ./*-layers.log ./*-SVG.log ./*-ps.log ./*-svg2.log
 
 debugclasses=
 case "$CFLAGS" in
@@ -51,22 +52,61 @@ run ()
 {
     prog="$1"
     dwg="$2"
+    addarg="$3"
 
     bprog="$(basename "$prog" .exe)"
     bdwg="$(basename "$dwg" .dwg)"
-    log="$bdwg-$bprog.log"
+    bprog1=$(echo "$bprog" | sed -e's,^dwg2,,')
+    bprog1=$(echo "$bprog1" | sed -e's,^dwg,,')
+    if [ -n "$addarg" ]; then
+        out=$(echo "$addarg" | sed -e 's,--as=,,')
+        log="$bdwg-$out-$bprog1.log"
+    else
+        log="$bdwg-$bprog1.log"
+    fi
     arg="${DATADIR}/$dwg.dwg"
     rm "./$log" 2>/dev/null
     case $bprog in
     dwglayers)  ;;
-    dwg2dxf)    arg="-y $arg" ;;
     dwggrep)    arg="-i tekst $arg" ;;
-    dxf2dwg)    arg="-y -v2 ${DATADIR}/$dwg.dxf" ;;
-    dwgwrite)   arg="-y -v2 $dwg.json" ;;
-    dwgread)    arg="-v2 -o $dwg.json $arg" ;;
-    dxfwrite)   arg="-y -v2 $dwg.json" ;;
-    #dwgrewrite) arg="-v2 $arg" ;;
-    *)          arg="-v2 $arg" ;;
+    dwg2dxf)    if [ -n "$addarg" ]; then
+                    arg="-y $addarg -o $bdwg-$out.dxf $arg"
+                else
+                    arg="-y $arg"
+                fi
+                ;;
+    dwgread)    if [ -n "$addarg" ]; then
+                    arg="-v2 $addarg -o $bdwg-$out.json $arg"
+                else
+                    arg="-v2 -o $dwg.json $arg"
+                fi
+                ;;
+    dwgwrite)   if [ -n "$addarg" ]; then
+                    arg="-y -v2 $addarg -o $bdwg-$out.dwg $dwg.json"
+                else
+                    arg="-y -v2 $dwg.json"
+                fi
+                ;;
+    dxfwrite)   if [ -n "$addarg" ]; then
+                    arg="-y -v2 $addarg -o $bdwg-$out.dxf $dwg.json"
+                else
+                    arg="-y -v2 $dwg.json"
+                fi
+                ;;
+    dxf2dwg)    if [ -n "$addarg" ]; then
+                    arg="-y -v2 $addarg -o $bdwg-$out.dwg ${DATADIR}/$dwg.dxf"
+                else
+                    arg="-y -v2 ${DATADIR}/$dwg.dxf"
+                fi
+                ;;
+    dwgrewrite) if [ -n "$addarg" ]; then
+                    arg="-v2 $addarg $arg"
+                else
+                    arg="-v2 $arg"
+                fi
+                ;;
+    dwgfuzz)    arg="-rw $arg"
+                ;;
     esac
     if [ -n "$VALGRIND" ] && [ -n "$LOG_COMPILER" ]; then
         TESTPROG="$LOG_COMPILER $LOG_FLAGS"
@@ -77,6 +117,10 @@ run ()
     fi
     # indxf still leaks, GH #151
     if test "$bprog" = "dxf2dwg" -a -n "@HAVE_ASAN@"
+    then
+       TESTPROG="env ASAN_OPTIONS=detect_leaks=0 $TESTPROG"
+    fi
+    if test "$bprog" = "dwgfuzz" -a -n "@HAVE_ASAN@"
     then
        TESTPROG="env ASAN_OPTIONS=detect_leaks=0 $TESTPROG"
     fi
@@ -161,6 +205,19 @@ for prog in $PROGS ; do
         run "$prog" "$dwg"
     done
 done
+
+# dwgread converts to json here, but has no --as yet
+# still disabled, see branch work/2004
+if false; then
+for prog in dwgwrite dwgrewrite dxf2dwg dwg2dxf dxfwrite ; do
+    for dwg in $DATA; do
+        for as in --as=r13 --as=r2000 --as=r2004 --as=r2010 --as=r2013 --as=r2018; do
+            run "$prog" "$dwg" "$as"
+        done
+    done
+done
+fi
+
 case $PROGS in
   *dwggrep*)
     echo "@LTEXEC@ ./dwggrep -i -c tekst ${DATADIR}/example_*.dwg"

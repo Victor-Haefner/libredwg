@@ -3,11 +3,11 @@
 
 // code, value, bits, pre_bits, num_bits, type, name, num, pos[]
 /* ACDBASSOCSWEPTSURFACEACTIONBODY 413 in test/test-data/2004/Surface.dxf */
-static struct _unknown_field unknown_dxf_ACDBASSOCSWEPTSURFACEACTIONBODY_484[] = {
+static struct _unknown_field unknown_dxf_ACDBASSOCSWEPTSURFACEACTIONBODY_261[] = {
   //{ 5, "413", NULL, 0, BITS_UNKNOWN, "handle", 1, {-1,-1,-1,-1,-1} },
     { 330, "412", NULL, 0, BITS_UNKNOWN, "ownerhandle", 1, {-1,-1,-1,-1,-1} },
     { 100, "AcDbAssocActionBody", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
-    { 90, "1", NULL, 0, BITS_UNKNOWN, "aab_status", 4, {-1,-1,-1,-1,-1} },
+    { 90, "1", NULL, 0, BITS_UNKNOWN, "aab_version", 4, {-1,-1,-1,-1,-1} },
     { 100, "AcDbAssocParamBasedActionBody", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 90, "0", NULL, 0, BITS_UNKNOWN, "pab_status", 11, {-1,-1,-1,-1,-1} },
     { 90, "0", NULL, 0, BITS_UNKNOWN, "pab_l2", 11, {-1,-1,-1,-1,-1} },
@@ -51,11 +51,11 @@ static struct _unknown_field unknown_dxf_ACDBASSOCSWEPTSURFACEACTIONBODY_484[] =
     { 0, NULL, NULL, 0, BITS_UNKNOWN, NULL, 0, {-1,-1,-1,-1,-1}}
 };
 /* ACDBASSOCSWEPTSURFACEACTIONBODY 413 in test/test-data/2018/Surface.dxf */
-static struct _unknown_field unknown_dxf_ACDBASSOCSWEPTSURFACEACTIONBODY_485[] = {
+static struct _unknown_field unknown_dxf_ACDBASSOCSWEPTSURFACEACTIONBODY_262[] = {
   //{ 5, "413", NULL, 0, BITS_UNKNOWN, "handle", 1, {-1,-1,-1,-1,-1} },
     { 330, "412", NULL, 0, BITS_UNKNOWN, "ownerhandle", 1, {-1,-1,-1,-1,-1} },
     { 100, "AcDbAssocActionBody", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
-    { 90, "2", NULL, 0, BITS_UNKNOWN, "aab_status", 1, {-1,-1,-1,-1,-1} },
+    { 90, "2", NULL, 0, BITS_UNKNOWN, "aab_version", 1, {-1,-1,-1,-1,-1} },
     { 100, "AcDbAssocSurfaceActionBody", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 90, "0", NULL, 0, BITS_UNKNOWN, "pab_status", 4, {-1,-1,-1,-1,-1} },
     { 330, "414", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },

@@ -59,7 +59,7 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
                const char *restrict key, int index)
 {
   Dwg_DYNAPI_field field;
-  enum RES_BUF_VALUE_TYPE vtype;
+  enum RESBUF_VALUE_TYPE vtype;
   Dwg_Version_Type dwg_version = dwg->header.version;
 
   if (!ptr)
@@ -94,22 +94,22 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
         }
       return;
     }
-  vtype = get_base_value_type (f->code);
-  if (vtype == VT_REAL && fp->size >= 16)
-    goto VT_POINT3D;
-  if (vtype == VT_INT8 && fp->size == 1 && strEQc (fp->type, "B"))
-    goto VT_BOOL;
-  if (vtype == VT_BOOL && fp->size == 1 && strEQc (fp->type, "RC"))
-    goto VT_INT8;
-  if (vtype == VT_INT8 && fp->size == 2)
-    goto VT_INT16;
-  if (vtype == VT_INT16 && fp->size == 4)
-    goto VT_INT32;
-  if (vtype == VT_INT32 && fp->size == 8)
-    goto VT_INT64;
+  vtype = dwg_resbuf_value_type (f->code);
+  if (vtype == DWG_VT_REAL && fp->size >= 16)
+    goto DWG_VT_POINT3D;
+  if (vtype == DWG_VT_INT8 && fp->size == 1 && strEQc (fp->type, "B"))
+    goto DWG_VT_BOOL;
+  if ((vtype == DWG_VT_BOOL || vtype == DWG_VT_INT16) && fp->size == 1 && strEQc (fp->type, "RC"))
+    goto DWG_VT_INT8;
+  if (vtype == DWG_VT_INT8 && fp->size == 2)
+    goto DWG_VT_INT16;
+  if (vtype == DWG_VT_INT16 && fp->size == 4)
+    goto DWG_VT_INT32;
+  if (vtype == DWG_VT_INT32 && fp->size == 8)
+    goto DWG_VT_INT64;
   switch (vtype)
     {
-    case VT_STRING:
+    case DWG_VT_STRING:
       {
         char *value;
         int isnew = 0;
@@ -142,8 +142,8 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           free (value);
       }
       break;
-    case VT_POINT3D:
-    VT_POINT3D:
+    case DWG_VT_POINT3D:
+    DWG_VT_POINT3D:
       {
         BITCODE_3BD pt;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &pt, &field))
@@ -186,7 +186,7 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_REAL:
+    case DWG_VT_REAL:
       {
         double value;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &value, &field))
@@ -207,8 +207,8 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_BOOL:
-    VT_BOOL:
+    case DWG_VT_BOOL:
+    DWG_VT_BOOL:
       {
         BITCODE_B value;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &value, &field))
@@ -227,8 +227,8 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_INT8:
-    VT_INT8:
+    case DWG_VT_INT8:
+    DWG_VT_INT8:
       {
         BITCODE_RC value;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &value, &field))
@@ -255,8 +255,8 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_INT16:
-    VT_INT16:
+    case DWG_VT_INT16:
+    DWG_VT_INT16:
       {
         BITCODE_BS value;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &value, &field))
@@ -283,8 +283,8 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_INT32:
-    VT_INT32:
+    case DWG_VT_INT32:
+    DWG_VT_INT32:
       {
         BITCODE_BL value;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &value, &field))
@@ -319,8 +319,8 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_INT64:
-    VT_INT64:
+    case DWG_VT_INT64:
+    DWG_VT_INT64:
       {
         BITCODE_BLL value;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &value, &field))
@@ -347,9 +347,9 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_BINARY:
+    case DWG_VT_BINARY:
       break;
-    case VT_HANDLE:
+    case DWG_VT_HANDLE:
       {
         BITCODE_H value;
         if (dwg_dynapi_subclass_value (ptr, subclass, key, &value, &field))
@@ -369,8 +369,8 @@ test_subclass (const Dwg_Data *restrict dwg, const void *restrict ptr,
           }
       }
       break;
-    case VT_OBJECTID:
-    case VT_INVALID:
+    case DWG_VT_OBJECTID:
+    case DWG_VT_INVALID:
     default:
       break;
     }
@@ -402,7 +402,7 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
     {
       Dwg_DYNAPI_field field;
       const Dwg_DYNAPI_field *fp, *fp1;
-      enum RES_BUF_VALUE_TYPE vtype;
+      enum RESBUF_VALUE_TYPE vtype;
       if (!f->name || !*f->name)
         continue;
       // support subclass, as in in_json
@@ -504,22 +504,24 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
             }
           continue;
         }
-      vtype = get_base_value_type (f->code);
-      if (vtype == VT_REAL && fp->size >= 16)
-        goto VT_POINT3D;
-      if (vtype == VT_INT8 && fp->size == 1 && strEQc (fp->type, "B"))
-        goto VT_BOOL;
-      if (vtype == VT_BOOL && fp->size == 1 && strEQc (fp->type, "RC"))
-        goto VT_INT8;
-      if (vtype == VT_INT8 && fp->size == 2)
-        goto VT_INT16;
-      if (vtype == VT_INT16 && fp->size == 4)
-        goto VT_INT32;
-      if (vtype == VT_INT32 && fp->size == 8)
-        goto VT_INT64;
+      vtype = dwg_resbuf_value_type (f->code);
+      if (vtype == DWG_VT_REAL && fp->size >= 16)
+        goto DWG_VT_POINT3D;
+      if (vtype == DWG_VT_INT8 && fp->size == 1 && strEQc (fp->type, "B"))
+        goto DWG_VT_BOOL;
+      if (vtype == DWG_VT_INT16 && fp->size == 1 && strEQc (fp->type, "RC"))
+        goto DWG_VT_INT8;
+      if (vtype == DWG_VT_INT8 && fp->size == 2)
+        goto DWG_VT_INT16;
+      if (vtype == DWG_VT_INT16 && fp->size == 4)
+        goto DWG_VT_INT32;
+      if (vtype == DWG_VT_INT16 && fp->size == 1)
+        goto DWG_VT_INT8;
+      if (vtype == DWG_VT_INT32 && fp->size == 8)
+        goto DWG_VT_INT64;
       switch (vtype)
         {
-        case VT_STRING:
+        case DWG_VT_STRING:
           {
             char *value;
             if (dwg_dynapi_entity_utf8text (obj->tio.object->tio.APPID, name,
@@ -540,8 +542,8 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
               free (value);
           }
           break;
-        case VT_POINT3D:
-        VT_POINT3D: {
+        case DWG_VT_POINT3D:
+        DWG_VT_POINT3D: {
             BITCODE_3BD pt;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
                                          f->name, &pt, &field))
@@ -584,7 +586,7 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
               }
           }
           break;
-        case VT_REAL:
+        case DWG_VT_REAL:
           {
             double value;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
@@ -606,8 +608,8 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
               }
           }
           break;
-        case VT_BOOL:
-        VT_BOOL: {
+        case DWG_VT_BOOL:
+        DWG_VT_BOOL: {
             BITCODE_B value;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
                                          f->name, &value, &field))
@@ -626,8 +628,8 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
               }
           }
           break;
-        case VT_INT8:
-        VT_INT8: {
+        case DWG_VT_INT8:
+        DWG_VT_INT8: {
             BITCODE_RC value;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
                                          f->name, &value, &field))
@@ -648,14 +650,14 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
                     if (g_counter > g_max_count)
                       pass ();
                     else
-                      ok ("%s.%s: %d <=> \"%s\" INT8 (TODO)", name, f->name, value,
-                          f->value);
+                      ok ("%s.%s: %d <=> \"%s\" INT8 (TODO)", name, f->name,
+                          value, f->value);
                   }
               }
           }
           break;
-        case VT_INT16:
-        VT_INT16: {
+        case DWG_VT_INT16:
+        DWG_VT_INT16: {
             BITCODE_BS value;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
                                          f->name, &value, &field))
@@ -676,14 +678,14 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
                     if (g_counter > g_max_count)
                       pass ();
                     else
-                      ok ("%s.%s: %d <=> \"%s\" INT16 (TODO)", name, f->name, (int)value,
-                          f->value);
+                      ok ("%s.%s: %d <=> \"%s\" INT16 (TODO)", name, f->name,
+                          (int)value, f->value);
                   }
               }
           }
           break;
-        case VT_INT32:
-        VT_INT32: {
+        case DWG_VT_INT32:
+        DWG_VT_INT32: {
             BITCODE_BL value;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
                                          f->name, &value, &field))
@@ -718,8 +720,8 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
               }
           }
           break;
-        case VT_INT64:
-        VT_INT64: {
+        case DWG_VT_INT64:
+        DWG_VT_INT64: {
             BITCODE_BLL value;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
                                          f->name, &value, &field))
@@ -740,15 +742,15 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
                     if (g_counter > g_max_count)
                       pass ();
                     else
-                      ok ("%s.%s: %ld <=> \"%s\" INT64 (TODO)", name, f->name, (long)value,
-                          f->value);
+                      ok ("%s.%s: %ld <=> \"%s\" INT64 (TODO)", name, f->name,
+                          (long)value, f->value);
                   }
               }
           }
           break;
-        case VT_BINARY:
+        case DWG_VT_BINARY:
           break;
-        case VT_HANDLE:
+        case DWG_VT_HANDLE:
           {
             BITCODE_H value;
             if (dwg_dynapi_entity_value (obj->tio.object->tio.APPID, name,
@@ -769,8 +771,8 @@ test_object (const Dwg_Data *restrict dwg, const Dwg_Object *restrict obj,
               }
           }
           break;
-        case VT_OBJECTID:
-        case VT_INVALID:
+        case DWG_VT_OBJECTID:
+        case DWG_VT_INVALID:
         default:
           break;
         }

@@ -124,12 +124,9 @@
     {                                                                         \
       if (DWG_LOGLEVEL >= DWG_LOGLEVEL_##level && wstr)                       \
         {                                                                     \
-          BITCODE_TU ws = wstr;                                               \
-          uint16_t _c;                                                        \
-          while ((_c = *ws++))                                                \
-            {                                                                 \
-              HANDLER (OUTPUT, "%c", (char)(_c & 0xff));                      \
-            }                                                                 \
+          char *_u8 = bit_convert_TU (wstr);                                  \
+          HANDLER (OUTPUT, "%s", _u8);                                        \
+          free (_u8);                                                         \
         }                                                                     \
     }
 #endif
@@ -141,12 +138,9 @@
     {                                                                         \
       if (DWG_LOGLEVEL >= DWG_LOGLEVEL_##level && wstr)                       \
         {                                                                     \
-          BITCODE_TW ws = wstr;                                               \
-          uint32_t _c;                                                        \
-          while ((_c = *ws++))                                                \
-            {                                                                 \
-              HANDLER (OUTPUT, "%c", (char)(_c & 0xff));                      \
-            }                                                                 \
+          char *_u8 = bit_convert_TU (wstr);                                  \
+          HANDLER (OUTPUT, "%s", _u8);                                        \
+          free (_u8);                                                         \
         }                                                                     \
     }
 

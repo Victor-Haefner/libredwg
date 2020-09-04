@@ -17,8 +17,11 @@
 /* TODO: Arc, Circle, Ellipsis, Bulge (Curve) tessellation.
  *       ocs/ucs transforms, explode of inserts?
  *       NOCOMMA:
- *       We really have to add the comma before, not after, and special case
- *       the first field, not the last to omit the comma.
+ *         We really have to add the comma before, not after, and special case
+ *         the first field, not the last to omit the comma.
+ *       GeoJSON 2008 or newer RFC7946 https://tools.ietf.org/html/rfc7946#appendix-B
+ *       For the new format we need to follow the right-hand rule for orientation
+ *       (counterclockwise polygons).
  */
 
 #include "config.h"
@@ -29,6 +32,7 @@
 #include <math.h>
 #include <assert.h>
 
+#define IS_PRINT
 #include "common.h"
 #include "bits.h"
 #include "myalloca.h"
@@ -42,6 +46,11 @@
 
 /* the current version per spec block */
 static unsigned int cur_ver = 0;
+
+/* https://tools.ietf.org/html/rfc7946#section-11.2 */
+// The default %f is good enough
+//#undef FORMAT_RD
+//#define FORMAT_RD %.6f
 
 /*--------------------------------------------------------------------------------
  * See http://geojson.org/geojson-spec.html
@@ -61,8 +70,10 @@ static unsigned int cur_ver = 0;
            },
          "geometry":
            { "type": "LineString",
-             "coordinates": [ [ 370.858611653430728, 730.630303522043732, 0.0
- ], [ 450.039756420260289, 619.219273076899071, 0.0 ] ]
+             "coordinates": [
+               [ 370.858611, 730.630303 ],
+               [ 450.039756, 619.219273 ]
+             ]
            }
        },
      ], ...
@@ -72,7 +83,6 @@ static unsigned int cur_ver = 0;
  */
 
 #define ACTION geojson
-#define IS_PRINT
 
 #define PREFIX                                                                \
   for (int _i = 0; _i < dat->bit; _i++)                                       \
@@ -133,7 +143,7 @@ static unsigned int cur_ver = 0;
     if (len < 4096 / 6)                                                       \
       {                                                                       \
         const int _len = 6 * len + 1;                                         \
-        char *_buf = alloca (_len);                                           \
+        char *_buf = (char *)alloca (_len);                                   \
         PREFIX fprintf (dat->fh, "\"" #name "\": \"%s\",\n",                  \
                         json_cquote (_buf, str, _len));                       \
         freea (_buf);                                                         \
@@ -141,7 +151,7 @@ static unsigned int cur_ver = 0;
     else                                                                      \
       {                                                                       \
         const int _len = 6 * len + 1;                                         \
-        char *_buf = malloc (_len);                                           \
+        char *_buf = (char *)malloc (_len);                                   \
         PREFIX fprintf (dat->fh, "\"" #name "\": \"%s\",\n",                  \
                         json_cquote (_buf, str, _len));                       \
         free (_buf);                                                          \
@@ -217,7 +227,7 @@ static unsigned int cur_ver = 0;
 #define FIELD_BT(name, dxf) FIELD (name, BT, dxf)
 #define FIELD_4BITS(name, dxf) FIELD (name, 4BITS, dxf)
 #define FIELD_BE(name, dxf) FIELD_3RD (name, dxf)
-#define FIELD_2DD(name, d1, d2, dxf)
+#define FIELD_2DD(name, def, dxf)
 #define FIELD_3DD(name, def, dxf)
 #define FIELD_2RD(name, dxf)
 #define FIELD_2BD(name, dxf)
@@ -263,8 +273,11 @@ static unsigned int cur_ver = 0;
     VALUE_RD (px);                                                            \
     fprintf (dat->fh, ", ");                                                  \
     VALUE_RD (py);                                                            \
-    fprintf (dat->fh, ", ");                                                  \
-    VALUE_RD (pz);                                                            \
+    if (pz != 0.0)                                                            \
+      {                                                                       \
+        fprintf (dat->fh, ", ");                                              \
+        VALUE_RD (pz);                                                        \
+      }                                                                       \
     fprintf (dat->fh, " ],\n");                                               \
   }
 #define LASTVALUE_3DPOINT(px, py, pz)                                         \
@@ -273,14 +286,27 @@ static unsigned int cur_ver = 0;
     VALUE_RD (px);                                                            \
     fprintf (dat->fh, ", ");                                                  \
     VALUE_RD (py);                                                            \
-    fprintf (dat->fh, ", ");                                                  \
-    VALUE_RD (pz);                                                            \
+    if (pz != 0.0)                                                            \
+      {                                                                       \
+        fprintf (dat->fh, ", ");                                              \
+        VALUE_RD (pz);                                                        \
+      }                                                                       \
     fprintf (dat->fh, " ]\n");                                                \
   }
 #define FIELD_3DPOINT(name)                                                   \
-  VALUE_3DPOINT (_obj->name.x, _obj->name.y, _obj->name.z)
+  {                                                                           \
+    if (_obj->name.z != 0.0)                                                  \
+      VALUE_3DPOINT (_obj->name.x, _obj->name.y, _obj->name.z)                \
+    else                                                                      \
+      FIELD_2DPOINT(name)                                                     \
+  }
 #define LASTFIELD_3DPOINT(name)                                               \
-  LASTVALUE_3DPOINT (_obj->name.x, _obj->name.y, _obj->name.z)
+  {                                                                           \
+    if (_obj->name.z != 0.0)                                                  \
+      LASTVALUE_3DPOINT (_obj->name.x, _obj->name.y, _obj->name.z)            \
+    else                                                                      \
+      LASTFIELD_2DPOINT (name)                                                \
+  }
 
 #define FIELD_CMC(name, dxf1, dxf2)
 #define FIELD_TIMEBLL(name, dxf)
@@ -300,7 +326,7 @@ static unsigned int cur_ver = 0;
 
 #define FIELD_VECTOR_T(name, type, size, dxf)                                 \
   ARRAY;                                                                      \
-  PRE (R_2007)                                                                \
+  if (!(IS_FROM_TU (dat)))                                                    \
   {                                                                           \
     for (vcount = 0; vcount < (BITCODE_BL)_obj->size; vcount++)               \
       {                                                                       \
@@ -339,6 +365,38 @@ static unsigned int cur_ver = 0;
             klass->proxyflag, klass->is_zombie ? "is_zombie" : "",          \
             obj->address + obj->size)
 
+// ensure counter-clockwise orientation of a closed polygon. 2d only.
+static int
+normalize_polygon_orient (BITCODE_BL numpts, dwg_point_2d **const pts_p)
+{
+  double sum = 0.0;
+  dwg_point_2d *pts = *pts_p;
+  // check orientation
+  for (unsigned i = 0; i < numpts - 1; i++)
+    {
+      sum += (pts[i+1].x - pts[i].x) * (pts[i+1].y + pts[i].y);
+    }
+  if (sum > 0.0) // if clockwise
+    {
+      // reverse and return a copy
+      unsigned last = numpts - 1;
+      dwg_point_2d *new = malloc (numpts * sizeof (BITCODE_2RD));
+      //fprintf (stderr, "%u pts, sum %f: reverse orient\n", numpts, sum);
+      for (unsigned i = 0; i < numpts; i++)
+        {
+          new[i].x = pts[last-i].x;
+          new[i].y = pts[last-i].y;
+        }
+      *pts_p = new;
+      return 1;
+    }
+  else
+    {
+      //fprintf (stderr, "%u pts, sum %f: keep orient\n", numpts, sum);
+      return 0;
+    }
+}
+
 // common properties
 static void
 dwg_geojson_feature (Bit_Chain *restrict dat, Dwg_Object *restrict obj,
@@ -349,6 +407,8 @@ dwg_geojson_feature (Bit_Chain *restrict dat, Dwg_Object *restrict obj,
   char tmp[64];
 
   PAIR_S (type, "Feature");
+  sprintf (tmp, "%lX", obj->handle.value);
+  PAIR_S (id, tmp);
   KEY (properties);
   SAMEHASH;
   PAIR_S (SubClasses, subclass);
@@ -364,38 +424,46 @@ dwg_geojson_feature (Bit_Chain *restrict dat, Dwg_Object *restrict obj,
           if (!error)
             {
               PAIR_S (Layer, name);
-              if (dat->version >= R_2007)
+              if (IS_FROM_TU (dat))
                 free (name);
             }
         }
 
       // See #95: index as int or rgb as hexstring
-      if (dat->version >= R_2004)
+      if (dat->version >= R_2004
+          && (obj->tio.entity->color.method == 0xc3     // Truecolor
+              || obj->tio.entity->color.method == 0xc2) // Entity
+          && obj->tio.entity->color.index == 256)
         {
-          sprintf (tmp, "%06X", obj->tio.entity->color.rgb & 0xffffff);
-          PAIR_S (color, tmp);
+          sprintf (tmp, "#%06X", obj->tio.entity->color.rgb & 0xffffff);
+          PAIR_S (Color, tmp);
         }
-      else
+      else if ((obj->tio.entity->color.index != 256)
+               || (dat->version >= R_2004
+                   && obj->tio.entity->color.method != 0xc0 // ByLayer
+                   && obj->tio.entity->color.method != 0xc1 // ByBlock
+                   && obj->tio.entity->color.method != 0xc8 // none
+                   ))
         {
-          PAIR_D (color, obj->tio.entity->color.index);
+          // no names for the first palette entries yet.
+          PAIR_D (Color, obj->tio.entity->color.index);
         }
 
       name = dwg_ent_get_ltype_name (obj->tio.entity, &error);
       if (!error && strNE (name, "ByLayer")) // skip the default
         {
           PAIR_S (Linetype, name);
-          if (dat->version >= R_2007)
+          if (IS_FROM_TU (dat))
             free (name);
         }
     }
 
-  sprintf (tmp, "%lX", obj->handle.value);
-  // if has name or text
+  // if has notes and opt. an mtext frame_text
   if (obj->type == DWG_TYPE_GEOPOSITIONMARKER)
     {
       Dwg_Entity_GEOPOSITIONMARKER *_obj
           = obj->tio.entity->tio.GEOPOSITIONMARKER;
-      PAIR_S (Text, _obj->text)
+      PAIR_S (Text, _obj->notes)
     }
   else if (obj->type == DWG_TYPE_TEXT)
     {
@@ -415,14 +483,14 @@ dwg_geojson_feature (Bit_Chain *restrict dat, Dwg_Object *restrict obj,
         {
           Dwg_Object_BLOCK_HEADER *_hdr = hdr->tio.object->tio.BLOCK_HEADER;
           char *text;
-          if (dat->version >= R_2007)
+          if (IS_FROM_TU (dat))
             text = bit_convert_TU ((BITCODE_TU)_hdr->name);
           else
             text = _hdr->name;
           if (text)
             {
               PAIR_S (name, text);
-              if (dat->version >= R_2007)
+              if (IS_FROM_TU (dat))
                 free (text);
             }
         }
@@ -435,19 +503,20 @@ dwg_geojson_feature (Bit_Chain *restrict dat, Dwg_Object *restrict obj,
         {
           Dwg_Object_BLOCK_HEADER *_hdr = hdr->tio.object->tio.BLOCK_HEADER;
           char *text;
-          if (dat->version >= R_2007)
+          if (IS_FROM_TU (dat))
             text = bit_convert_TU ((BITCODE_TU)_hdr->name);
           else
             text = _hdr->name;
           if (text)
             {
               PAIR_S (name, text);
-              if (dat->version >= R_2007)
+              if (IS_FROM_TU (dat))
                 free (text);
             }
         }
     }
   // PAIR_NULL(ExtendedEntity);
+  sprintf (tmp, "%lX", obj->handle.value);
   LASTPAIR_S (EntityHandle, tmp);
   ENDHASH;
 }
@@ -466,18 +535,36 @@ dwg_geojson_LWPOLYLINE (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int i
 {
   BITCODE_BL j, last_j;
   Dwg_Entity_LWPOLYLINE *_obj = obj->tio.entity->tio.LWPOLYLINE;
-  last_j = _obj->num_points - 1;
-  // TODO: if closed and num_points > 3 use a Polygon
+  dwg_point_2d *pts = (dwg_point_2d*)_obj->points;
+
   FEATURE (AcDbEntity : AcDbLwPolyline, obj);
-  GEOMETRY (LineString);
-  KEY (coordinates);
-  ARRAY;
-  for (j = 0; j < last_j; j++)
+  // if closed and num_points > 3 use a Polygon
+  if (_obj->flag & 512 && _obj->num_points > 3)
     {
-      FIELD_2DPOINT (points[j]);
+      int changed = normalize_polygon_orient (_obj->num_points, &pts); // RFC7946
+      GEOMETRY (Polygon)
+      KEY (coordinates);
+      ARRAY;
+      ARRAY;
+      for (j = 0; j < _obj->num_points; j++)
+        VALUE_2DPOINT (pts[j].x, pts[j].y)
+      LASTVALUE_2DPOINT (pts[0].x, pts[0].y);
+      LASTENDARRAY;
+      LASTENDARRAY;
+      if (changed)
+        free (pts);
     }
-  LASTFIELD_2DPOINT (points[last_j]);
-  LASTENDARRAY;
+  else
+    {
+      GEOMETRY (LineString)
+      KEY (coordinates);
+      ARRAY;
+      last_j = _obj->num_points - 1;
+      for (j = 0; j < last_j; j++)
+        VALUE_2DPOINT (pts[j].x, pts[j].y);
+      LASTVALUE_2DPOINT (pts[last_j].x, pts[last_j].y);
+      LASTENDARRAY;
+    }
   ENDGEOMETRY;
   ENDFEATURE;
   return 1;
@@ -515,7 +602,8 @@ dwg_geojson_variable_type (Dwg_Data *restrict dwg, Bit_Chain *restrict dat,
       Dwg_Object_GEODATA *_obj = obj->tio.object->tio.GEODATA;
       WARN_UNSTABLE_CLASS;
       FEATURE (AcDbObject : AcDbGeoData, obj);
-      // which fields?
+      // which fields? transformation for the world-coordinates?
+      // crs links of type proj4, ogcwkt, esriwkt or such?
       ENDFEATURE;
       return 0;
     }
@@ -530,13 +618,9 @@ dwg_geojson_variable_type (Dwg_Data *restrict dwg, Bit_Chain *restrict dat,
       GEOMETRY (Point);
       KEY (coordinates);
       if (fabs (_obj->position.z) > 0.000001)
-        {
-          VALUE_3DPOINT (_obj->position.x, _obj->position.y, _obj->position.z);
-        }
+        VALUE_3DPOINT (_obj->position.x, _obj->position.y, _obj->position.z)
       else
-        {
-          VALUE_2DPOINT (_obj->position.x, _obj->position.y);
-        }
+        VALUE_2DPOINT (_obj->position.x, _obj->position.y);
       ENDGEOMETRY;
       ENDFEATURE;
       return 1;
@@ -557,9 +641,7 @@ dwg_geojson_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int is_la
         // TODO: explode insert into a GeometryCollection
         GEOMETRY (Point);
         KEY (coordinates);
-        ARRAY;
         LASTFIELD_3DPOINT (ins_pt);
-        LASTENDARRAY;
         ENDGEOMETRY;
         ENDFEATURE;
         return 1;
@@ -573,26 +655,48 @@ dwg_geojson_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int is_la
       {
         int error;
         BITCODE_BL j, numpts;
-        dwg_point_2d *pts;
+        bool is_polygon = false;
+        int changed = 0;
+        dwg_point_2d *pts, *orig;
+        Dwg_Entity_POLYLINE_2D *_obj = obj->tio.entity->tio.POLYLINE_2D;
+
+        // if closed and num_points > 3 use a Polygon
         FEATURE (AcDbEntity : AcDbPolyline, obj);
-        GEOMETRY (MultiLineString);
-        KEY (coordinates);
-        ARRAY;
         numpts = dwg_object_polyline_2d_get_numpoints (obj, &error);
         pts = dwg_object_polyline_2d_get_points (obj, &error);
-        for (j = 0; j < numpts; j++)
+        if (_obj->flag & 512 && numpts > 3)
           {
-            if (j == numpts - 1)
-              {
-                LASTVALUE_2DPOINT (pts[j].x, pts[j].y);
-              }
-            else
-              {
-                VALUE_2DPOINT (pts[j].x, pts[j].y);
-              }
+            orig = pts; // pts is already a new copy
+            changed = normalize_polygon_orient (numpts, &pts); // RFC7946
+            if (changed)
+              free (orig);
+            GEOMETRY (Polygon)
+            KEY (coordinates);
+            ARRAY;
+            ARRAY;
+            for (j = 0; j < numpts; j++)
+              VALUE_2DPOINT (pts[j].x, pts[j].y)
+            LASTVALUE_2DPOINT (pts[0].x, pts[0].y);
+            LASTENDARRAY;
+            LASTENDARRAY;
+            if (changed)
+              free (pts);
           }
-        free (pts);
-        LASTENDARRAY;
+        else
+          {
+            GEOMETRY (LineString)
+            KEY (coordinates);
+            ARRAY;
+            for (j = 0; j < numpts; j++)
+              {
+                if (j == numpts - 1)
+                  LASTVALUE_2DPOINT (pts[j].x, pts[j].y)
+                else
+                  VALUE_2DPOINT (pts[j].x, pts[j].y);
+              }
+            free (pts);
+            LASTENDARRAY;
+          }
         ENDGEOMETRY;
         ENDFEATURE;
         return 1;
@@ -603,7 +707,7 @@ dwg_geojson_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int is_la
         BITCODE_BL j, numpts;
         dwg_point_3d *pts;
         FEATURE (AcDbEntity : AcDbPolyline, obj);
-        GEOMETRY (MultiLineString);
+        GEOMETRY (LineString);
         KEY (coordinates);
         ARRAY;
         numpts = dwg_object_polyline_3d_get_numpoints (obj, &error);
@@ -668,6 +772,7 @@ dwg_geojson_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int is_la
         return 1;
       }
     case DWG_TYPE__3DFACE:
+      // really a Polygon
       // dwg_geojson__3DFACE(dat, obj);
       LOG_TRACE ("3DFACE not yet supported")
       break;
@@ -700,7 +805,7 @@ dwg_geojson_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int is_la
       break;
     case DWG_TYPE__3DSOLID:
       // dwg_geojson__3DSOLID(dat, obj);
-      break; /* Check the type of the object */
+      break;
     case DWG_TYPE_REGION:
       // dwg_geojson_REGION(dat, obj);
       break;
@@ -722,9 +827,7 @@ dwg_geojson_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int is_la
         FEATURE (AcDbEntity : AcDbText, obj);
         GEOMETRY (Point);
         KEY (coordinates);
-        ARRAY;
-        LASTFIELD_2DPOINT (insertion_pt);
-        LASTENDARRAY;
+        LASTFIELD_2DPOINT (ins_pt);
         ENDGEOMETRY;
         ENDFEATURE;
         return 1;
@@ -736,9 +839,7 @@ dwg_geojson_object (Bit_Chain *restrict dat, Dwg_Object *restrict obj, int is_la
         FEATURE (AcDbEntity : AcDbMText, obj);
         GEOMETRY (Point);
         KEY (coordinates);
-        ARRAY;
-        LASTFIELD_3DPOINT (insertion_pt);
-        LASTENDARRAY;
+        LASTFIELD_3DPOINT (ins_pt);
         ENDGEOMETRY;
         ENDFEATURE;
         return 1;
@@ -760,22 +861,20 @@ static int
 geojson_entities_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
   BITCODE_BL i;
-
+  int success;
   SECTION (features);
   for (i = 0; i < dwg->num_objects; i++)
     {
       int is_last = i == dwg->num_objects - 1;
       Dwg_Object *obj = &dwg->object[i];
-      int success = dwg_geojson_object (dat, obj, is_last);
-      if (is_last && !success) // did not write any: end with dummy
+      success = dwg_geojson_object (dat, obj, is_last);
+      if (is_last && !success) // needed for the LASTFEATURE comma. end with an empty dummy
         {
           HASH
           PAIR_S (type, "Feature");
-          KEY (properties);
-          SAMEHASH;
-          LASTPAIR_S (SubClasses, "Dummy");
-          LASTENDHASH
-          LASTENDHASH
+          PAIR_NULL (properties);
+          LASTPAIR_NULL (geometry);
+          LASTENDHASH;
         }
     }
   ENDSEC (); // because afterwards is always the final geocoding object

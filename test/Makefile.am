@@ -115,6 +115,7 @@ TESTDATA = \
     test-data/2004/circle.txt \
     test-data/2004/material.dwg \
     test-data/2004/material.dxf \
+    test-data/2007/ATMOS-DC22S.dwg \
     test-data/2007/Arc.dwg \
     test-data/2007/Arc.jpg \
     test-data/2007/Arc.txt \
@@ -264,6 +265,7 @@ TESTDATA = \
     test-data/2013/circle.dwg \
     test-data/2013/circle.jpg \
     test-data/2013/circle.txt \
+    test-data/2013/gh44-error.dwg \
     test-data/2013/gh109_1.dwg \
     test-data/2013/gh109_1.dxf \
     test-data/2018/Arc.dwg \
@@ -274,6 +276,8 @@ TESTDATA = \
     test-data/2018/ConstructionLine.txt \
     test-data/2018/Donut.dwg \
     test-data/2018/Donut.txt \
+    test-data/2018/Dynblocks.dwg \
+    test-data/2018/Dynblocks.dxf \
     test-data/2018/Ellipse.dwg \
     test-data/2018/Ellipse.txt \
     test-data/2018/Helix.dwg \
@@ -282,6 +286,8 @@ TESTDATA = \
     test-data/2018/Leader.dxf \
     test-data/2018/Line.dwg \
     test-data/2018/Line.txt \
+    test-data/2018/LiveSection1.dwg \
+    test-data/2018/LiveSection1.dxf \
     test-data/2018/Multiline.dwg \
     test-data/2018/Multiline.txt \
     test-data/2018/Point.dwg \
@@ -314,6 +320,7 @@ TESTDATA = \
     test-data/example_2013.dxf \
     test-data/example_2018.dwg \
     test-data/example_2018.dxf \
+    test-data/example_2018.dxfb \
     test-data/example_r12.dxf \
     test-data/example_r13.dwg \
     test-data/example_r13.dxf \

@@ -3,7 +3,7 @@
 
 // code, value, bits, pre_bits, num_bits, type, name, num, pos[]
 /* EXTRUDEDSURFACE 2D8 in test/test-data/2004/Surface.dxf */
-static struct _unknown_field unknown_dxf_EXTRUDEDSURFACE_1261[] = {
+static struct _unknown_field unknown_dxf_EXTRUDEDSURFACE_751[] = {
   //{ 5, "2D8", NULL, 0, BITS_UNKNOWN, "handle", 1, {-1,-1,-1,-1,-1} },
     { 102, "{ACAD_REACTORS", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 330, "2E1", NULL, 0, BITS_UNKNOWN, "reactors[0]", 1, {-1,-1,-1,-1,-1} },
@@ -32,7 +32,7 @@ static struct _unknown_field unknown_dxf_EXTRUDEDSURFACE_1261[] = {
     { 1, "ACIS BinaryFile", NULL, 0, BITS_UNKNOWN, "bin_sat_data", 1, {-1,-1,-1,-1,-1} },
     { 70, "1", NULL, 0, BITS_UNKNOWN, "modeler_format_version", 3, {-1,-1,-1,-1,-1} },
     { 1, "mogoo mj m o          ", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
-    { 1, "ni ^ *+0;:,4 ^ *+0\\^ [ mo ^ LR mmlqoqnqnflo PLG o  ", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
+    { 1, "ni ^ *+0;:,4 ^ *+0\\\\^ [ mo ^ LR mmlqoqnqnflo PLG o  ", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 1, "n fqfffffffffffffffjkh:roh nqooooooooooooooooli:rno ", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 1, ">,27:>;:- {rn rn _nm mmlqoqnqnflo |", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 1, "=0;& {rn rn {rn {m {rn {rn |", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
@@ -155,7 +155,7 @@ static struct _unknown_field unknown_dxf_EXTRUDEDSURFACE_1261[] = {
     { 0, NULL, NULL, 0, BITS_UNKNOWN, NULL, 0, {-1,-1,-1,-1,-1}}
 };
 /* EXTRUDEDSURFACE 2D8 in test/test-data/2018/Surface.dxf */
-static struct _unknown_field unknown_dxf_EXTRUDEDSURFACE_1262[] = {
+static struct _unknown_field unknown_dxf_EXTRUDEDSURFACE_752[] = {
   //{ 5, "2D8", NULL, 0, BITS_UNKNOWN, "handle", 1, {-1,-1,-1,-1,-1} },
     { 102, "{ACAD_REACTORS", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 330, "2E1", NULL, 0, BITS_UNKNOWN, "reactors[0]", 1, {-1,-1,-1,-1,-1} },
@@ -175,7 +175,7 @@ static struct _unknown_field unknown_dxf_EXTRUDEDSURFACE_1262[] = {
     { 100, "AcDbExtrudedSurface", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 90, "35", NULL, 0, BITS_UNKNOWN, "class_version", 1, {-1,-1,-1,-1,-1} },
     { 90, "472", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
-    { 310, "1542844EC03F66D00D9B99FA676319B40A8010000000000F03F005B54831A3417B0001926C5F89E50BC08752AB76E40DDE33F8182D4454FB211940CC", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
+    { 310, "1542844EC03F66D00D9B99FA676319B40A8FFFFFFFFFFFFEF3F005B54831A3417B0001926C5F89E50BC08742AB76E40DDE33F8182D4454FB211940CC", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },
     { 10, "0.0", NULL, 0, BITS_UNKNOWN, "sweep_vector", 44, {-1,-1,-1,-1,-1} },
     { 20, "0.0", NULL, 0, BITS_UNKNOWN, "", 44, {-1,-1,-1,-1,-1} },
     { 30, "200.0", NULL, 0, BITS_UNKNOWN, "", 1, {-1,-1,-1,-1,-1} },

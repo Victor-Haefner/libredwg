@@ -28,7 +28,7 @@ dnl one place. For information on how to properly maintain the library
 dnl version information, refer to the libtool manual, section "Updating
 dnl library version information":
 dnl http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
-AC_SUBST([LIBREDWG_SO_VERSION], [0:10:0])
+AC_SUBST([LIBREDWG_SO_VERSION], [0:11:0])
 AC_SUBST([TARBALL_VERSION_FILE])
 
 AC_CONFIG_MACRO_DIR([m4])
@@ -178,10 +178,10 @@ enable_Werror=no
 ax_enable_compile_warnings=yes
 if test x$enable_shared = xyes -a x$ac_compiler_gnu = xyes; then
   AX_COMPILER_FLAGS([WARN_CFLAGS],[AM_LDFLAGS],[$ax_is_release],
-    [-fvisibility=hidden -fno-semantic-interposition])
+    [-fno-common -fvisibility=hidden -fno-semantic-interposition])
 else
-  AX_COMPILER_FLAGS([WARN_CFLAGS],[AM_LDFLAGS],[$ax_is_release]
-    [-fvisibility=hidden])
+  AX_COMPILER_FLAGS([WARN_CFLAGS],[AM_LDFLAGS],[$ax_is_release],
+    [-fno-common -fvisibility=hidden])
 fi
 dnl if test x$ax_cv_check_cflags__Wunused_but_set_variable = xyes; then
 dnl   WARN_CFLAGS="$WARN_CFLAGS -Wno-unused-but-set-variable"
@@ -249,7 +249,10 @@ AC_CHECK_FUNCS([scandir],[],
 AC_CHECK_FUNCS([floor sqrt])
 AC_CHECK_LIB([m],[floor])
 AC_CHECK_LIB([m],[sqrt])
-AC_CHECK_FUNCS([memchr memmove strcasecmp strchr strrchr strtol strtoul strtoull])
+AC_CHECK_FUNCS([memchr memmove strcasecmp strchr strrchr strtol strtoul strtoull strnlen])
+AC_CHECK_FUNCS([memmem],[],
+  AC_MSG_WARN([memmem not found. Using a slower workaround.]))
+AC_CHECK_FUNCS([wcslen wcsnlen wcscpy wcscmp])
 
 dnl mingw-w64 7.0 bug with _FORTIFY_SOURCE, need -lssp
 case $host in
@@ -574,6 +577,15 @@ AC_CHECK_PROGS([SHELLCHECK], [shellcheck])
 AM_CONDITIONAL([HAVE_SHELLCHECK], [test -n "$SHELLCHECK"])
 AC_CHECK_PROGS([RPMLINT], [rpmlint])
 AM_CONDITIONAL([HAVE_RPMLINT], [test -n "$RPMLINT"])
+AC_CHECK_PROGS([GEOJSONHINT], [geojsonhint])
+if [ test -z "$GEOJSONHINT" ]; then
+  dnl fallback to npm i -g geojson-validation
+  AC_CHECK_PROGS([GJV], [gjv])
+  GEOJSONLINT="$GJV"
+else
+  GEOJSONLINT="$GEOJSONHINT"
+fi
+AC_SUBST([GEOJSONLINT])
 
 dnl SVG validation
 AC_CHECK_PROGS([JING], [jing])

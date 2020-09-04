@@ -65,22 +65,34 @@ const char version_codes[DWG_VERSIONS][7] = {
   "INVALI", // R_INVALID
   "MC0.0",  /* DWG Release 1.1 (as MicroCAD) */
   "AC1.2",  /* DWG Release 1.2 (as AutoCAD) */
-  "AC1.4",  /* DWG Release 1.4 */
+  "AC1.3",  /* DWG Release 1.3 */
+  "AC1.40", /* DWG Release 1.4 */
+  "AC402b", /* 1.402b */
   "AC1.50", /* DWG Release 2.0 */
-  "AC2.10", /* DWG Release 2.10 */
-  "AC1002", /* DWG Release 2.5 */
-  "AC1003", /* DWG Release 2.6 */
-  "AC1004", // R_9  DWG Release 9
-  "AC1006", // R_10 DWG Release 10
-  "AC1009", // R_11 DWG Release 11/12 (LT R1/R2)
-  "AC1012", // R_13 and LT95, beware of R13C3
-  "AC1014", // R_14
-  "AC1015", // R_2000 (r15)
-  "AC1018", // R_2004
-  "AC1021", // R_2007
-  "AC1024", // R_2010
-  "AC1027", // R_2013
-  "AC1032", // R_2018
+  "AC2.10", /* DWG Release 2.10*/
+  "AC2.21", /* DWG Release 2.21 */
+  "AC2.22", /* DWG Release 2.22                  dwg_version: */
+  "AC1001", // DWG Release 2.4 (?)               8
+  "AC1002", // DWG Release 2.5                   9
+  "AC1003", // DWG Release 2.6                   10
+  "AC1004", // R_9  DWG Release 9                0x0b
+  "AC1005", // R_9  DWG Release 9c1              0x0c
+  "AC1006", // R_10 DWG Release 10               0x0d
+  "AC1007", // R_10 DWG Release 10c1             0x0e
+  "AC1008", // R_10 DWG Release 10c2             0x0f
+  "AC1009", // R_11 DWG Release 11/12 (LT R1/R2) 0x10
+  "AC1010", // R_11 DWG Release 12 (LT R1/R2)    0x11
+  "AC1011", // R_11 DWG Release 12c1             0x12
+  "AC1012", // R_13 and LT95, beware of R13c3    0x13
+  "AC1013", // R_13c3                            0x14
+  "AC1014", // R_14                              0x15
+  "AC1015", // R_2000 (r15)                      0x17
+  "AC1018", // R_2004                            0x18, 0x19, 0x1a
+  "AC1021", // R_2007                            0x1b
+  "AC1024", // R_2010                            0x1d
+  "AC1027", // R_2013                            0x1f
+  "AC1032", // R_2018                            0x21
+  "AC1035", // R_2021                            0x24 ??
   "------"  // R_AFTER
 };
 
@@ -145,7 +157,7 @@ const unsigned char dwg_bits_size[] = {
 char *
 strrplc (const char *s, const char *from, const char *to)
 {
-  char *p = strstr (s, from);
+  const char *p = strstr (s, from);
   if (p)
     {
       int len = strlen (s) - (strlen (from) - strlen (to));
@@ -161,130 +173,108 @@ strrplc (const char *s, const char *from, const char *to)
     return NULL;
 }
 
-
-enum RES_BUF_VALUE_TYPE
-get_base_value_type (short gc)
+#if !defined(HAVE_MEMMEM) || defined(COMMON_TEST_C)
+// naive from scratch implementation, not from glibc.
+// see also examples/unknown.c:membits
+void *  __nonnull((1, 3))
+my_memmem (const void *h0, size_t k, const void *n0, size_t l)
 {
-  if (gc >= 300)
+  const unsigned char *h = h0, *n = n0;
+  unsigned char *plast;
+
+  if (!l)
+    return (void *)h; // empty needle
+  if (k < l)
+    return NULL;      // needle longer than haystack
+  h = memchr (h0, *n, k);
+  if (!h || l == 1)
+    return (void *)h; // first needle char not found
+  k -= h - (const unsigned char *)h0;
+  if (k < l)
+    return NULL;      // no room for needle
+
+  plast = (unsigned char*)h + (k - l);
+  do // naive 2 loops: O(n^2)
     {
-      if (gc >= 440)
+      size_t i = 0;
+      while (h[i] == n[i])
         {
-          if (gc >= 1000) // 1000-1071
-            {
-              if (gc == 1004)
-                return VT_BINARY;
-              if (gc <= 1009)
-                return VT_STRING;
-              if (gc <= 1059)
-                return VT_REAL;
-              if (gc <= 1070)
-                return VT_INT16;
-              if (gc == 1071)
-                return VT_INT32;
-            }
-          else // 440-999
-            {
-              if (gc <= 459)
-                return VT_INT32;
-              if (gc <= 469)
-                return VT_REAL;
-              if (gc <= 479)
-                return VT_STRING;
-              if (gc <= 998)
-                return VT_INVALID;
-              if (gc == 999)
-                return VT_STRING; // lgtm [cpp/constant-comparison]
-            }
-        }
-      else // <440
-        {
-          if (gc >= 390) // 390-439
-            {
-              if (gc <= 399)
-                return VT_HANDLE;
-              if (gc <= 409)
-                return VT_INT16;
-              if (gc <= 419)
-                return VT_STRING;
-              if (gc <= 429)
-                return VT_INT32;
-              if (gc <= 439)
-                return VT_STRING; // lgtm [cpp/constant-comparison]
-            }
-          else // 330-389
-            {
-              if (gc <= 309)
-                return VT_STRING;
-              if (gc <= 319)
-                return VT_BINARY;
-              if (gc <= 329)
-                return VT_HANDLE;
-              if (gc <= 369)
-                return VT_OBJECTID;
-              if (gc <= 389)
-                return VT_INT16; // lgtm [cpp/constant-comparison]
-            }
+          if (++i == l)
+            return (void *)h;
         }
     }
-  else if (gc >= 105)
-    {
-      if (gc >= 210) // 210-299
-        {
-          if (gc <= 239)
-            return VT_REAL;
-          if (gc <= 269)
-            return VT_INVALID;
-          if (gc <= 279)
-            return VT_INT16;
-          if (gc <= 289)
-            return VT_INT8;
-          if (gc <= 299)
-            return VT_BOOL; // lgtm [cpp/constant-comparison]
-        }
-      else // 105-209
-        {
-          if (gc == 105)
-            return VT_HANDLE;
-          if (gc <= 109)
-            return VT_INVALID;
-          if (gc <= 149)
-            return VT_REAL;
-          if (gc <= 169) // e.g. REQUIREDVERSIONS 160 r2013+
-            return VT_INT64;
-          if (gc <= 179)
-            return VT_INT16;
-          if (gc <= 209)
-            return VT_INVALID; // lgtm [cpp/constant-comparison]
-        }
-    }
-  else // <105
-    {
-      if (gc >= 38) // 38-102
-        {
-          if (gc <= 59)
-            return VT_REAL;
-          if (gc <= 79)
-            return VT_INT16;
-          if (gc <= 99)
-            return VT_INT32;
-          if (gc <= 101)
-            return VT_STRING;
-          if (gc == 102)
-            return VT_STRING;
-        }
-      else // 0-37
-        {
-          if (gc < 0)
-            return VT_HANDLE;
-          if (gc <= 4)
-            return VT_STRING;
-          if (gc == 5)
-            return VT_HANDLE;
-          if (gc <= 9)
-            return VT_STRING; // but 9 never TU
-          if (gc <= 37)
-            return VT_POINT3D; // lgtm [cpp/constant-comparison]
-        }
-    }
-  return VT_INVALID;
+  while (++h <= plast);
+  return NULL;
+}
+#endif
+
+/*
+ 32 types, with 3 categories: Face, Edge, Display, plus 58 props r2013+
+ */
+const char *const _dwg_VISUALSTYLE_types[32] = { "Flat",
+                                                 "FlatWithEdges",
+                                                 "Gouraud",
+                                                 "GouraudWithEdges",
+                                                 "2DWireframe",
+                                                 "3DWireFrame",
+                                                 "Hidden",
+                                                 "Basic",
+                                                 "Realistic",
+                                                 "Conceptual",
+                                                 "Dim",
+                                                 "Brighten",
+                                                 "Thicken",
+                                                 "LinePattern",
+                                                 "Facepattern",
+                                                 "ColorChange",
+                                                 "FaceOnly",
+                                                 "EdgeOnly",
+                                                 "DisplayOnly",
+                                                 "JitterOff",
+                                                 "OverhangOff",
+                                                 "EdgeColorOff",
+                                                 "Shades of Gray",
+                                                 "Sketchy",
+                                                 "X-Ray",
+                                                 "Shaded with edges",
+                                                 "Shaded",
+                                                 "ByViewport",
+                                                 "ByLayer",
+                                                 "ByBlock",
+                                                 "ForEmptyStyle" };
+
+/* types of the 58 rest r2013+ properties.
+ * 1:
+ * 2:
+ * 3:
+ * 4:
+ * 5:
+ */
+const unsigned char _dwg_VISUALSTYLE_proptypes[58] =
+  {
+   /* [0]  */    2,  2,  2,  2,
+   /* [4]  */    3,  3,  4,  2,
+   /* [8]  */    2,  4,  4,  2,
+   /* [12] */    2,  3,  2,  4,
+   /* [16] */    3,  2,  2,  2,
+   /* [20] */    4,  2,  2,  2,
+   /* [24] */    1,  2,  3,  2,
+   /* [28] */    1,  1,  1,  1,
+   /* [32] */    1,  1,  1,  1,
+   /* [36] */    1,  2,  3,  3,
+   /* [40] */    2,  4,  2,  2,
+   /* [44] */    4,  1,  2,  2,
+   /* [48] */    2,  1,  2,  4,
+   /* [52] */    3,  2,  5,  1,
+   /* [56] */    3,  3
+  };
+
+// need to return the first ref from the handle vector.
+BITCODE_H
+shift_hv (BITCODE_H *hv, BITCODE_BL *num_p)
+{
+  BITCODE_H ref = hv[0];
+  *num_p = *num_p - 1;
+  memmove (&hv[0], &hv[1], *num_p * sizeof (BITCODE_H));
+  return ref;
 }

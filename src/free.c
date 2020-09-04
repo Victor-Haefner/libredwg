@@ -34,6 +34,7 @@
 #include "free.h"
 #include "classes.h"
 #include "hash.h"
+#include "free.h"
 
 static unsigned int loglevel;
 #ifdef USE_TRACING
@@ -44,7 +45,8 @@ static int env_var_checked_p;
 
 /* the current version per spec block */
 static unsigned int cur_ver = 0;
-static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
+static Bit_Chain pdat = { NULL, 0, 0, 0, 0, R_INVALID };
+static BITCODE_BL rcount1, rcount2;
 
 /*--------------------------------------------------------------------------------
  * MACROS
@@ -60,16 +62,28 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
     ptr = NULL;                                                               \
   }
 
+#undef UNTIL
 #undef SINCE
+#undef PRE
+#undef VERSIONS
+#undef VERSION
+#define UNTIL(v)                                                              \
+  if (dat->from_version <= v)
 #define SINCE(v)                                                              \
-  cur_ver = v;                                                                \
   if (dat->from_version >= v)
+#define PRE(v)                                                                \
+  if (dat->from_version < v)
+#define VERSIONS(v1, v2)                                                      \
+  if (dat->from_version >= v1 && dat->from_version <= v2)
+#define VERSION(v)                                                            \
+  if (dat->from_version == v)
 
 #define VALUE(value, type, dxf)
 #define VALUE_RC(value, dxf) VALUE (value, RC, dxf)
 #define VALUE_RS(value, dxf) VALUE (value, RS, dxf)
 #define VALUE_RL(value, dxf) VALUE (value, RL, dxf)
 #define VALUE_RD(value, dxf) VALUE (value, RD, dxf)
+#define VALUE_BD(value, dxf) VALUE (value, BD, dxf)
 
 #define FIELD(name, type)                                                     \
   {                                                                           \
@@ -80,6 +94,9 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
   LOG_TRACE (#name ": " FORMAT_##type " [" #type " %d]\n", _obj->name,        \
              dxfgroup)
 #define FIELD_CAST(name, type, cast, dxf)                                     \
+  {                                                                           \
+  }
+#define SUB_FIELD_CAST(o, name, type, cast, dxf)                              \
   {                                                                           \
   }
 #define FIELD_VALUE(name) _obj->name
@@ -140,7 +157,7 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
 #define FIELD_DD(name, _default, dxf)                                         \
   {                                                                           \
   }
-#define FIELD_2DD(name, d1, d2, dxf)                                          \
+#define FIELD_2DD(name, def, dxf)                                             \
   {                                                                           \
   }
 #define FIELD_3DD(name, def, dxf)                                             \
@@ -175,14 +192,13 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
   }
 #define FIELD_TIMEBLL(name, dxf)
 #define FIELD_TIMERLL(name, dxf)
-// indxf does not assign names yet
-#define FIELD_CMC(color, dxf1, dxf2)                                          \
-  if (!(dat->opts & DWG_OPTS_IN)) {                                           \
+#define FIELD_CMC(color, dxf)                                                 \
+  {                                                                           \
     FIELD_T (color.name, 0);                                                  \
     FIELD_T (color.book_name, 0);                                             \
   }
-#define SUB_FIELD_CMC(o, color, dxf1, dxf2)                                   \
-  if (!(dat->opts & DWG_OPTS_IN)) {                                           \
+#define SUB_FIELD_CMC(o, color, dxf)                                          \
+  {                                                                           \
     VALUE_TV (_obj->o.color.name, 0);                                         \
     VALUE_TV (_obj->o.color.book_name, 0);                                    \
   }
@@ -227,6 +243,13 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
         }                                                                     \
       FREE_IF (_obj->o.name)                                                  \
     }
+#define SUB_FIELD_VECTOR(o, nam, sizefield, type, dxf)                        \
+  if (_obj->o.sizefield && _obj->o.nam)                                       \
+    {                                                                         \
+      for (vcount = 0; vcount < (BITCODE_BL) (_obj->o.sizefield); vcount++)   \
+        SUB_FIELD_##type (o, nam[vcount], dxf);                               \
+    }                                                                         \
+  FREE_IF (_obj->o.nam)
 
 #define FIELD_NUM_INSERTS(num_inserts, type, dxf)
 #define FIELD_XDATA(name, size) dwg_free_xdata (_obj, _obj->size)
@@ -249,7 +272,7 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
 #define XDICOBJHANDLE(code)                                                   \
   SINCE (R_2004)                                                              \
   {                                                                           \
-    if (!obj->tio.object->xdic_missing_flag)                                  \
+    if (!obj->tio.object->is_xdic_missing)                                  \
       {                                                                       \
         VALUE_HANDLE (obj->tio.object->xdicobjhandle, xdicobjhandle, code,    \
                       0);                                                     \
@@ -262,7 +285,7 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
 #define ENT_XDICOBJHANDLE(code)                                               \
   SINCE (R_2004)                                                              \
   {                                                                           \
-    if (!ent->xdic_missing_flag)                                              \
+    if (!ent->is_xdic_missing)                                              \
       {                                                                       \
         VALUE_HANDLE (ent->xdicobjhandle, xdicobjhandle, code, 0);            \
       }                                                                       \
@@ -277,14 +300,11 @@ static Bit_Chain pdat = { NULL, 0, 0, 0, 0, 0 };
 #define END_STRING_STREAM
 #define START_HANDLE_STREAM
 
-static int dwg_free_UNKNOWN_ENT (Bit_Chain *restrict dat,
-                                 Dwg_Object *restrict obj);
-static int dwg_free_UNKNOWN_OBJ (Bit_Chain *restrict dat,
-                                 Dwg_Object *restrict obj);
 
 #define DWG_ENTITY(token)                                                     \
-  static int dwg_free_##token##_private (Bit_Chain *restrict dat,             \
-                                         Dwg_Object *restrict obj);           \
+  static int dwg_free_##token##_private                                       \
+    (Bit_Chain *dat, Bit_Chain *hdl_dat,                                      \
+     Bit_Chain *str_dat, Dwg_Object *restrict obj);                           \
                                                                               \
   static int dwg_free_##token (Bit_Chain *restrict dat,                       \
                                Dwg_Object *restrict obj)                      \
@@ -294,7 +314,7 @@ static int dwg_free_UNKNOWN_OBJ (Bit_Chain *restrict dat,
       {                                                                       \
         LOG_HANDLE ("Free entity " #token " [%d]\n", obj->index)              \
         if (obj->tio.entity->tio.token)                                       \
-          error = dwg_free_##token##_private (dat, obj);                      \
+          error = dwg_free_##token##_private (dat, dat, dat, obj);            \
                                                                               \
         dwg_free_common_entity_data (obj);                                    \
         dwg_free_eed (obj);                                                   \
@@ -307,26 +327,28 @@ static int dwg_free_UNKNOWN_OBJ (Bit_Chain *restrict dat,
     obj->parent = NULL;                                                       \
     return error;                                                             \
   }                                                                           \
-  static int dwg_free_##token##_private (Bit_Chain *restrict dat,             \
-                                         Dwg_Object *restrict obj)            \
+  static int dwg_free_##token##_private                                       \
+    (Bit_Chain *dat, Bit_Chain *hdl_dat,                                      \
+     Bit_Chain *str_dat, Dwg_Object *restrict obj)                            \
   {                                                                           \
-    BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4;                    \
+    BITCODE_BL vcount, rcount3, rcount4;                                      \
     Dwg_Entity_##token *ent, *_obj;                                           \
     Dwg_Object_Entity *_ent;                                                  \
-    Bit_Chain *hdl_dat = dat;                                                 \
-    Bit_Chain *str_dat = dat;                                                 \
     Dwg_Data *dwg = obj->parent;                                              \
     int error = 0;                                                            \
     _ent = obj->tio.entity;                                                   \
+    if (!_ent)                                                                \
+      return 0;                                                               \
     _obj = ent = _ent->tio.token;
 
 #define DWG_ENTITY_END                                                        \
-  return error;                                                               \
+    return error;                                                             \
   }
 
 #define DWG_OBJECT(token)                                                     \
-  static int dwg_free_##token##_private (Bit_Chain *restrict dat,             \
-                                         Dwg_Object *restrict obj);           \
+  static int dwg_free_##token##_private                                       \
+    (Bit_Chain *dat, Bit_Chain *hdl_dat,                                      \
+     Bit_Chain *str_dat, Dwg_Object *restrict obj);                           \
                                                                               \
   static int dwg_free_##token (Bit_Chain *restrict dat,                       \
                                Dwg_Object *restrict obj)                      \
@@ -337,7 +359,7 @@ static int dwg_free_UNKNOWN_OBJ (Bit_Chain *restrict dat,
       {                                                                       \
         _obj = obj->tio.object->tio.token;                                    \
         LOG_HANDLE ("Free object " #token " [%d]\n", obj->index)              \
-        error = dwg_free_##token##_private (dat, obj);                        \
+        error = dwg_free_##token##_private (dat, dat, dat, obj);              \
         dwg_free_common_object_data (obj);                                    \
         dwg_free_eed (obj);                                                   \
         FREE_IF (_obj);                                                       \
@@ -347,13 +369,12 @@ static int dwg_free_UNKNOWN_OBJ (Bit_Chain *restrict dat,
     return error;                                                             \
   }                                                                           \
                                                                               \
-  static int dwg_free_##token##_private (Bit_Chain *restrict dat,             \
-                                         Dwg_Object *restrict obj)            \
+  static int dwg_free_##token##_private                                       \
+    (Bit_Chain *dat, Bit_Chain *hdl_dat,                                      \
+     Bit_Chain *str_dat, Dwg_Object *restrict obj)                            \
   {                                                                           \
-    BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4;                    \
+    BITCODE_BL vcount, rcount3, rcount4;                                      \
     Dwg_Object_##token *_obj;                                                 \
-    Bit_Chain *hdl_dat = dat;                                                 \
-    Bit_Chain *str_dat = dat;                                                 \
     Dwg_Data *dwg = obj->parent;                                              \
     int error = 0;                                                            \
     if (!obj->tio.object)                                                     \
@@ -363,7 +384,7 @@ static int dwg_free_UNKNOWN_OBJ (Bit_Chain *restrict dat,
 /* obj itself is allocated via dwg->object[], dxfname is klass->dxfname or
  * static */
 #define DWG_OBJECT_END                                                        \
-  return error;                                                               \
+    return error;                                                             \
   }
 
 static void
@@ -450,10 +471,9 @@ dwg_free_eed (Dwg_Object *obj)
 
 #include "dwg.spec"
 
-
 // could be a hash or switch, but there are not that many DEBUGGING classes.
 // but a switch is fine, as we get all missing types in objects.inc, generated by regen-dynapi
-static int
+int
 dwg_free_variable_no_class (Dwg_Data *restrict dwg, Dwg_Object *restrict obj)
 {
   Bit_Chain *dat = &pdat;
@@ -467,18 +487,13 @@ dwg_free_variable_no_class (Dwg_Data *restrict dwg, Dwg_Object *restrict obj)
   switch (obj->fixedtype)
     {
     #include "objects.inc"
+
     case DWG_TYPE_FREED: break; // already freed
     case DWG_TYPE_UNUSED:
     case DWG_TYPE_ACDSRECORD:
     case DWG_TYPE_ACDSSCHEMA:
-    case DWG_TYPE_ACSH_REVOLVE_CLASS:
-    case DWG_TYPE_ACSH_PYRAMID_CLASS:
-    case DWG_TYPE_ACSH_SPHERE_CLASS:
-    case DWG_TYPE_ARCALIGNEDTEXT:
     case DWG_TYPE_NPOCOLLECTION:
-    case DWG_TYPE_POINTCLOUD:
     case DWG_TYPE_RAPIDRTRENDERENVIRONMENT:
-    case DWG_TYPE_RTEXT:
     case DWG_TYPE_XREFPANELOBJECT:
     default: LOG_ERROR ("Unhandled class %s, fixedtype %d in objects.inc",
                         dwg_type_name (obj->fixedtype), (int)obj->fixedtype);
@@ -486,14 +501,14 @@ dwg_free_variable_no_class (Dwg_Data *restrict dwg, Dwg_Object *restrict obj)
 
 #undef DWG_ENTITY
 #undef DWG_OBJECT
+#undef FREE_NOCLASS
 
   return DWG_ERR_UNHANDLEDCLASS;
 }
 
-/* returns 1 if object could be freed and 0 otherwise
+/* returns error.
  */
-static int
-dwg_free_variable_type (Dwg_Data *restrict dwg, Dwg_Object *restrict obj)
+int dwg_free_variable_type (Dwg_Data *restrict dwg, Dwg_Object *restrict obj)
 {
   const int i = obj->type - 500;
   Dwg_Class *klass;
@@ -540,8 +555,42 @@ dwg_free_variable_type (Dwg_Data *restrict dwg, Dwg_Object *restrict obj)
   return dwg_free_variable_no_class (dwg, obj);
 }
 
+/* returns error */
+int dwg_free_variable_type_private (Dwg_Object *restrict obj)
+{
+  Dwg_Data *restrict dwg = obj->parent;
+  Bit_Chain *dat = &pdat;
+
+#undef DWG_ENTITY
+#undef DWG_OBJECT
+#define FREE_NOCLASS(name) case DWG_TYPE_##name: return dwg_free_##name##_private (dat, dat, dat, obj);
+#define DWG_ENTITY(name) FREE_NOCLASS (name)
+#define DWG_OBJECT(name) FREE_NOCLASS (name)
+
+  switch (obj->fixedtype)
+    {
+    #include "objects.inc"
+
+    case DWG_TYPE_FREED: break; // already freed
+    case DWG_TYPE_UNUSED:
+    case DWG_TYPE_ACDSRECORD:
+    case DWG_TYPE_ACDSSCHEMA:
+    case DWG_TYPE_NPOCOLLECTION:
+    case DWG_TYPE_RAPIDRTRENDERENVIRONMENT:
+    case DWG_TYPE_XREFPANELOBJECT:
+    default: LOG_ERROR ("Unhandled class %s, fixedtype %d in objects.inc",
+                        dwg_type_name (obj->fixedtype), (int)obj->fixedtype);
+    }
+
+#undef DWG_ENTITY
+#undef DWG_OBJECT
+#undef FREE_NOCLASS
+
+  return DWG_ERR_UNHANDLEDCLASS;
+}
+
 // using the global dat
-void
+EXPORT void
 dwg_free_object (Dwg_Object *obj)
 {
   int error = 0;
@@ -751,11 +800,11 @@ dwg_free_object (Dwg_Object *obj)
     case DWG_TYPE_DIMSTYLE:
       dwg_free_DIMSTYLE (dat, obj);
       break;
-    case DWG_TYPE_VPORT_ENTITY_CONTROL:
-      dwg_free_VPORT_ENTITY_CONTROL (dat, obj);
+    case DWG_TYPE_VX_CONTROL:
+      dwg_free_VX_CONTROL (dat, obj);
       break;
-    case DWG_TYPE_VPORT_ENTITY_HEADER:
-      dwg_free_VPORT_ENTITY_HEADER (dat, obj);
+    case DWG_TYPE_VX_TABLE_RECORD:
+      dwg_free_VX_TABLE_RECORD (dat, obj);
       break;
     case DWG_TYPE_GROUP:
       dwg_free_GROUP (dat, obj);
@@ -828,6 +877,283 @@ dwg_free_object (Dwg_Object *obj)
   obj->type = DWG_TYPE_FREED;
 }
 
+/* Needed when we cast types.
+   By fixedtype, not dxfname.
+ */
+EXPORT void
+dwg_free_object_private (Dwg_Object *obj)
+{
+  int error = 0;
+  long unsigned int j;
+  Dwg_Data *dwg;
+  Bit_Chain *dat = &pdat;
+
+  if (obj && obj->parent)
+    {
+      dwg = obj->parent;
+      dat->version = dwg->header.version;
+      dat->from_version = dwg->header.from_version;
+    }
+  else
+    return;
+  if (obj->type == DWG_TYPE_FREED || obj->tio.object == NULL)
+    return;
+
+  switch (obj->type)
+    {
+    case DWG_TYPE_TEXT:
+      dwg_free_TEXT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_ATTRIB:
+      dwg_free_ATTRIB_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_ATTDEF:
+      dwg_free_ATTDEF_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_BLOCK:
+      dwg_free_BLOCK_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_ENDBLK:
+      dwg_free_ENDBLK_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_SEQEND:
+      dwg_free_SEQEND_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_INSERT:
+      dwg_free_INSERT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_MINSERT:
+      dwg_free_MINSERT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VERTEX_2D:
+      dwg_free_VERTEX_2D_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VERTEX_3D:
+      dwg_free_VERTEX_3D_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VERTEX_MESH:
+      dwg_free_VERTEX_MESH_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VERTEX_PFACE:
+      dwg_free_VERTEX_PFACE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VERTEX_PFACE_FACE:
+      dwg_free_VERTEX_PFACE_FACE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_POLYLINE_2D:
+      dwg_free_POLYLINE_2D_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_POLYLINE_3D:
+      dwg_free_POLYLINE_3D_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_ARC:
+      dwg_free_ARC_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_CIRCLE:
+      dwg_free_CIRCLE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LINE:
+      dwg_free_LINE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMENSION_ORDINATE:
+      dwg_free_DIMENSION_ORDINATE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMENSION_LINEAR:
+      dwg_free_DIMENSION_LINEAR_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMENSION_ALIGNED:
+      dwg_free_DIMENSION_ALIGNED_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMENSION_ANG3PT:
+      dwg_free_DIMENSION_ANG3PT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMENSION_ANG2LN:
+      dwg_free_DIMENSION_ANG2LN_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMENSION_RADIUS:
+      dwg_free_DIMENSION_RADIUS_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMENSION_DIAMETER:
+      dwg_free_DIMENSION_DIAMETER_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_POINT:
+      dwg_free_POINT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE__3DFACE:
+      dwg_free__3DFACE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_POLYLINE_PFACE:
+      dwg_free_POLYLINE_PFACE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_POLYLINE_MESH:
+      dwg_free_POLYLINE_MESH_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_SOLID:
+      dwg_free_SOLID_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_TRACE:
+      dwg_free_TRACE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_SHAPE:
+      dwg_free_SHAPE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VIEWPORT:
+      dwg_free_VIEWPORT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_ELLIPSE:
+      dwg_free_ELLIPSE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_SPLINE:
+      dwg_free_SPLINE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_REGION:
+      dwg_free_REGION_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE__3DSOLID:
+      dwg_free__3DSOLID_private (dat, dat, dat, obj);
+      break; /* Check the type of the object */
+    case DWG_TYPE_BODY:
+      dwg_free_BODY_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_RAY:
+      dwg_free_RAY_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_XLINE:
+      dwg_free_XLINE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DICTIONARY:
+      dwg_free_DICTIONARY_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_MTEXT:
+      dwg_free_MTEXT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LEADER:
+      dwg_free_LEADER_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_TOLERANCE:
+      dwg_free_TOLERANCE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_MLINE:
+      dwg_free_MLINE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_BLOCK_CONTROL:
+      dwg_free_BLOCK_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_BLOCK_HEADER:
+      dwg_free_BLOCK_HEADER_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LAYER_CONTROL:
+      dwg_free_LAYER_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LAYER:
+      dwg_free_LAYER_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_STYLE_CONTROL:
+      dwg_free_STYLE_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_STYLE:
+      dwg_free_STYLE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LTYPE_CONTROL:
+      dwg_free_LTYPE_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LTYPE:
+      dwg_free_LTYPE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VIEW_CONTROL:
+      dwg_free_VIEW_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VIEW:
+      dwg_free_VIEW_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_UCS_CONTROL:
+      dwg_free_UCS_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_UCS:
+      dwg_free_UCS_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VPORT_CONTROL:
+      dwg_free_VPORT_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VPORT:
+      dwg_free_VPORT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_APPID_CONTROL:
+      dwg_free_APPID_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_APPID:
+      dwg_free_APPID_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMSTYLE_CONTROL:
+      dwg_free_DIMSTYLE_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DIMSTYLE:
+      dwg_free_DIMSTYLE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VX_CONTROL:
+      dwg_free_VX_CONTROL_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_VX_TABLE_RECORD:
+      dwg_free_VX_TABLE_RECORD_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_GROUP:
+      dwg_free_GROUP_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_MLINESTYLE:
+      dwg_free_MLINESTYLE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_OLE2FRAME:
+      dwg_free_OLE2FRAME_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_DUMMY:
+      dwg_free_DUMMY_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LONG_TRANSACTION:
+      dwg_free_LONG_TRANSACTION_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_LWPOLYLINE:
+      dwg_free_LWPOLYLINE_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_HATCH:
+      dwg_free_HATCH_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_XRECORD:
+      dwg_free_XRECORD_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_PLACEHOLDER:
+      dwg_free_PLACEHOLDER_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_OLEFRAME:
+      dwg_free_OLEFRAME_private (dat, dat, dat, obj);
+      break;
+#ifdef DEBUG_VBA_PROJECT
+    case DWG_TYPE_VBA_PROJECT:
+      dwg_free_VBA_PROJECT_private (dat, dat, dat, obj);
+      break;
+#endif
+    case DWG_TYPE_LAYOUT:
+      dwg_free_LAYOUT_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_PROXY_ENTITY:
+      dwg_free_PROXY_ENTITY_private (dat, dat, dat, obj);
+      break;
+    case DWG_TYPE_PROXY_OBJECT:
+      dwg_free_PROXY_OBJECT_private (dat, dat, dat, obj);
+      break;
+    default:
+      if (obj->type == obj->parent->layout_type
+          && obj->fixedtype == DWG_TYPE_LAYOUT)
+        {
+          SINCE (R_13)
+          {
+            dwg_free_LAYOUT_private (dat, dat, dat, obj); // XXX avoid double-free, esp. in eed
+          }
+        }
+      else
+        dwg_free_variable_type_private (obj);
+    }
+}
+
 static int
 dwg_free_header_vars (Dwg_Data *dwg)
 {
@@ -839,18 +1165,15 @@ dwg_free_header_vars (Dwg_Data *dwg)
   #include "header_variables.spec"
   // clang-format on
 
-  if (dwg->opts & DWG_OPTS_MINIMAL)
-    FREE_IF (_obj->HANDSEED);
   return 0;
 }
 
 static int
 dwg_free_summaryinfo (Dwg_Data *dwg)
 {
-  struct Dwg_SummaryInfo *_obj = &dwg->summaryinfo;
+  Dwg_SummaryInfo *_obj = &dwg->summaryinfo;
   Dwg_Object *obj = NULL;
   Bit_Chain *dat = &pdat;
-  BITCODE_RL rcount1, rcount2;
 
   // clang-format off
   #include "summaryinfo.spec"
@@ -861,10 +1184,9 @@ dwg_free_summaryinfo (Dwg_Data *dwg)
 static int
 dwg_free_appinfo (Dwg_Data *dwg)
 {
-  struct Dwg_AppInfo *_obj = &dwg->appinfo;
+  Dwg_AppInfo *_obj = &dwg->appinfo;
   Dwg_Object *obj = NULL;
   Bit_Chain *dat = &pdat;
-  BITCODE_RL rcount1, rcount2;
 
   // clang-format off
   #include "appinfo.spec"
@@ -874,10 +1196,10 @@ dwg_free_appinfo (Dwg_Data *dwg)
 static int
 dwg_free_filedeplist (Dwg_Data *dwg)
 {
-  struct Dwg_FileDepList *_obj = &dwg->filedeplist;
+  Dwg_FileDepList *_obj = &dwg->filedeplist;
   Dwg_Object *obj = NULL;
   Bit_Chain *dat = &pdat;
-  BITCODE_RL vcount, rcount1;
+  BITCODE_RL vcount;
 
   // clang-format off
   #include "filedeplist.spec"
@@ -887,10 +1209,9 @@ dwg_free_filedeplist (Dwg_Data *dwg)
 static int
 dwg_free_security (Dwg_Data *dwg)
 {
-  struct Dwg_Security *_obj = &dwg->security;
+  Dwg_Security *_obj = &dwg->security;
   Dwg_Object *obj = NULL;
   Bit_Chain *dat = &pdat;
-  BITCODE_RL rcount1, rcount2;
 
   // clang-format off
   #include "security.spec"
@@ -901,10 +1222,10 @@ dwg_free_security (Dwg_Data *dwg)
 static int
 dwg_free_acds (Dwg_Data *dwg)
 {
-  struct Dwg_AcDs *_obj = &dwg->acds;
+  Dwg_AcDs *_obj = &dwg->acds;
   Dwg_Object *obj = NULL;
   Bit_Chain *dat = &pdat;
-  BITCODE_RL rcount1, rcount2, rcount3 = 0, rcount4, vcount;
+  BITCODE_RL rcount3 = 0, rcount4, vcount;
 
   // clang-format off
   #include "acds.spec"
@@ -955,11 +1276,12 @@ dwg_free (Dwg_Data *dwg)
       dwg_free_filedeplist (dwg);
       dwg_free_security (dwg);
       dwg_free_acds (dwg);
+
       FREE_IF (dwg->vbaproject.unknown_bits);
       FREE_IF (dwg->revhistory.histories);
       FREE_IF (dwg->appinfohistory.unknown_bits);
       //FREE_IF (dwg->objfreespace...);
-      FREE_IF (dwg->template.description);
+      FREE_IF (dwg->Template.description);
       FREE_IF (dwg->header.section);
       for (i = 0; i < dwg->second_header.num_handlers; i++)
         FREE_IF (dwg->second_header.handlers[i].data);
@@ -979,8 +1301,8 @@ dwg_free (Dwg_Data *dwg)
               if (dwg->header.from_version >= R_2007)
                 FREE_IF (dwg->dwg_class[i].dxfname_u);
             }
-          FREE_IF (dwg->dwg_class);
         }
+      FREE_IF (dwg->dwg_class);
       if (dwg->object_ref)
         {
           LOG_HANDLE ("free %d global refs\n", dwg->num_object_refs)
@@ -991,6 +1313,11 @@ dwg_free (Dwg_Data *dwg)
             }
         }
       FREE_IF (dwg->object_ref);
+      for (i = 0; i < dwg->num_acis_sab_hdl; ++i)
+        {
+          FREE_IF (dwg->acis_sab_hdl[i]);
+        }
+      FREE_IF (dwg->acis_sab_hdl);
       FREE_IF (dwg->object);
       if (dwg->object_map)
         hash_free (dwg->object_map);

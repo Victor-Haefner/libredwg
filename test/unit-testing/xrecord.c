@@ -6,7 +6,7 @@ api_process (dwg_object *obj)
 {
   int error;
   BITCODE_BL xdata_size;
-  BITCODE_BS cloning_flags;
+  BITCODE_BS cloning;
   BITCODE_BL num_xdata;
   Dwg_Resbuf *xdata;
   BITCODE_H parent;
@@ -15,10 +15,10 @@ api_process (dwg_object *obj)
 
   dwg_obj_xrecord *xrecord = dwg_object_to_XRECORD (obj);
 
-  CHK_ENTITY_TYPE (xrecord, XRECORD, xdata_size, BL, xdata_size); // called num_databytes in old API
-  CHK_ENTITY_TYPE_W_OBJ (xrecord, XRECORD, cloning_flags, BS, cloning_flags);
-  CHK_ENTITY_TYPE_W_OBJ (xrecord, XRECORD, num_xdata, BL, num_xdata);
-  //CHK_ENTITY_TYPE_W_OBJ (xrecord, XRECORD, xdata, TV, xdata);
+  CHK_ENTITY_TYPE (xrecord, XRECORD, xdata_size, BL); // called num_databytes in old API
+  CHK_ENTITY_TYPE (xrecord, XRECORD, cloning, BS);
+  CHK_ENTITY_TYPE_W_OBJ (xrecord, XRECORD, num_xdata, BL);
+  //CHK_ENTITY_TYPE_W_OBJ (xrecord, XRECORD, xdata, TV);
   if (!dwg_dynapi_entity_value (xrecord, "XRECORD", "xdata", &xdata, NULL))
     fail ("dwg_dynapi_entity_value");
 #if 0
@@ -38,8 +38,6 @@ api_process (dwg_object *obj)
   else
     fail ("xrecord->xdata[0]");
 #endif
-  CHK_ENTITY_TYPE_W_OBJ (xrecord, XRECORD, num_objid_handles, BL,
-                         num_objid_handles);
-  CHK_ENTITY_HV (xrecord, XRECORD, objid_handles, objid_handles,
-                 num_objid_handles);
+  CHK_ENTITY_TYPE_W_OBJ (xrecord, XRECORD, num_objid_handles, BL);
+  CHK_ENTITY_HV (xrecord, XRECORD, objid_handles, num_objid_handles);
 }

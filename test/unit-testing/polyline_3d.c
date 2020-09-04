@@ -13,9 +13,9 @@ api_process (dwg_object *obj)
 
   dwg_ent_polyline_3d *polyline_3d = dwg_object_to_POLYLINE_3D (obj);
 
-  CHK_ENTITY_TYPE_W_OLD (polyline_3d, POLYLINE_3D, flag, RC, flag);
-  CHK_ENTITY_TYPE_W_OLD (polyline_3d, POLYLINE_3D, curve_type, RC, curve_type);
-  CHK_ENTITY_TYPE (polyline_3d, POLYLINE_3D, num_owned, BL, num_owned);
+  CHK_ENTITY_TYPE_W_OLD (polyline_3d, POLYLINE_3D, flag, RC);
+  CHK_ENTITY_TYPE_W_OLD (polyline_3d, POLYLINE_3D, curve_type, RC);
+  CHK_ENTITY_TYPE (polyline_3d, POLYLINE_3D, num_owned, BL);
   numpoints = dwg_object_polyline_3d_get_numpoints (obj, &error);
   if (error)
     fail ("polyline_3d_get_numpoints");
@@ -34,12 +34,12 @@ api_process (dwg_object *obj)
 
   if (version >= R_13 && version <= R_2000)
     {
-      CHK_ENTITY_H (polyline_3d, POLYLINE_3D, first_vertex, first_vertex);
-      CHK_ENTITY_H (polyline_3d, POLYLINE_3D, last_vertex, last_vertex);
+      CHK_ENTITY_H (polyline_3d, POLYLINE_3D, first_vertex);
+      CHK_ENTITY_H (polyline_3d, POLYLINE_3D, last_vertex);
     }
   if (version >= R_2004)
     {
-      CHK_ENTITY_HV (polyline_3d, POLYLINE_3D, vertex, vertex, num_owned);
+      CHK_ENTITY_HV (polyline_3d, POLYLINE_3D, vertex, num_owned);
     }
-  CHK_ENTITY_H (polyline_3d, POLYLINE_3D, seqend, seqend);
+  CHK_ENTITY_H (polyline_3d, POLYLINE_3D, seqend);
 }

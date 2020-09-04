@@ -37,11 +37,6 @@
 #include "in_json.h"
 #include "in_dxf.h"
 
-// avoid the slow fork loop, for afl-clang-fast
-#ifdef __AFL_COMPILER
-static volatile const char *__afl_persistent_sig = "##SIG_AFL_PERSISTENT##";
-#endif
-
 static int opts = 1;
 int overwrite = 0;
 
@@ -101,6 +96,57 @@ help (void)
   return 0;
 }
 
+#ifdef __AFL_COMPILER
+__AFL_FUZZ_INIT();
+int main (int argc, char *argv[])
+{
+  Dwg_Data dwg;
+  Bit_Chain dat = { NULL, 0, 0, 0, 0 };
+  Bit_Chain out_dat = { NULL, 0, 0, 0, 0 };
+  FILE *fp;
+
+  __AFL_INIT();
+  dat.chain = NULL;
+  dat.version = R_2000;
+  printf ("Fuzzing in_json + encode from shared memory\n");
+
+  while (__AFL_LOOP(10000)) { // llvm_mode persistent, non-forking mode
+#if 1 // fastest mode via shared mem (crashes still)
+    dat.chain = __AFL_FUZZ_TESTCASE_BUF;
+    dat.size = __AFL_FUZZ_TESTCASE_LEN;
+#elif 1 // still 1000x faster than the old file-forking fuzzer.
+    /* from stdin: */
+    dat.size = 0;
+    dat_read_stream (&dat, stdin);
+#else
+    /* else from file */
+    stat (argv[1], &attrib);
+    fp = fopen (argv[1], "rb");
+    if (!fp)
+      return 0;
+    dat.size = attrib.st_size;
+    dat_read_file (&dat, fp, argv[1]);
+    fclose (fp);
+#endif
+    if (dat.size < 100) continue;  // useful minimum input length
+
+    if (dwg_read_json (&dat, &dwg) <= DWG_ERR_CRITICAL) {
+      memset (&out_dat, 0, sizeof (out_dat));
+      bit_chain_set_version (&out_dat, &dat);
+      out_dat.version = R_2000;      
+      if (dwg_encode (&dwg, &out_dat) >= DWG_ERR_CRITICAL)
+        exit (0);
+      free (out_dat.chain);
+    }
+    else
+      exit (0);
+  }
+  dwg_free (&dwg);
+}
+#define main orig_main
+int orig_main (int argc, char *argv[]);
+#endif
+
 int
 main (int argc, char *argv[])
 {
@@ -112,7 +158,7 @@ main (int argc, char *argv[])
   char *outfile = NULL;
   Bit_Chain dat = { 0 };
   const char *version = NULL;
-  Dwg_Version_Type dwg_version = R_INVALID;
+  Dwg_Version_Type dwg_version = R_2000;
   int c;
   int force_free = 0;
   int free_outfile = 0;
@@ -259,7 +305,8 @@ main (int argc, char *argv[])
   
   // allow stdin, but require -I|--format then
   memset (&dwg, 0, sizeof (Dwg_Data));
-  dwg.opts = opts;
+  dat.opts = dwg.opts = opts;
+  dat.version = R_2000; // initial target for the importer
 
   if (infile)
     {
@@ -269,7 +316,7 @@ main (int argc, char *argv[])
           fprintf (stderr, "Missing input file '%s'\n", infile);
           exit (1);
         }
-      dat.fh = fopen (infile, "r");
+      dat.fh = fopen (infile, "rb");
       if (!dat.fh)
         {
           fprintf (stderr, "Could not read file '%s'\n", infile);
@@ -278,7 +325,9 @@ main (int argc, char *argv[])
       dat.size = attrib.st_size;
     }
   else
-    dat.fh = stdin;
+    {
+      dat.fh = stdin;
+    }
 
 #ifndef DISABLE_DXF
   if ((fmt && !strcasecmp (fmt, "json"))
@@ -287,22 +336,33 @@ main (int argc, char *argv[])
       if (opts > 1)
         fprintf (stderr, "Reading JSON file %s\n",
                  infile ? infile : "from stdin");
+      if (infile)
+        dat_read_file (&dat, dat.fh, infile);
       error = dwg_read_json (&dat, &dwg);
     }
   else if ((fmt && !strcasecmp (fmt, "dxfb"))
            || (infile && !strcasecmp (infile, ".dxfb")))
     {
       if (opts > 1)
-        fprintf (stderr, "Reading Binary DXF file %s\n",
+        {
+          fprintf (stderr, "Reading Binary DXF file %s\n",
                  infile ? infile : "from stdin");
-      error = dwg_read_dxfb (&dat, &dwg);
+          fprintf (stderr, "Warning: still highly experimental and untested.\n");
+        }
+      if (infile)
+        error = dxf_read_file (infile, &dwg); // ascii or binary
+      else
+        error = dwg_read_dxfb (&dat, &dwg);
     }
   else if ((fmt && !strcasecmp (fmt, "dxf"))
            || (infile && !strcasecmp (infile, ".dxf")))
     {
       if (opts > 1)
-        fprintf (stderr, "Reading DXF file %s\n",
-                 infile ? infile : "from stdin");
+        {
+          fprintf (stderr, "Reading DXF file %s\n",
+                   infile ? infile : "from stdin");
+          fprintf (stderr, "Warning: still experimental.\n");
+        }
       if (infile)
         error = dxf_read_file (infile, &dwg); // ascii or binary
       else
@@ -330,11 +390,12 @@ main (int argc, char *argv[])
     goto free;
 
   if (dwg.header.from_version == R_INVALID)
-    dwg.header.from_version = dwg.header.version;
-  if (version)
+    fprintf (stderr, "Unknown DWG header.from_version");
+  // FIXME: for now only R_13 - R_2000. later remove this line.
+  if (dwg.header.from_version < R_13 || dwg.header.from_version >= R_2004)
     dat.version = dwg.header.version = dwg_version;
   else
-    dat.version = dwg.header.version = R_2000;
+    dat.version = dwg.header.version = dwg.header.from_version;
 
   if (!outfile)
     {

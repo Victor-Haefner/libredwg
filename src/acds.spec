@@ -42,8 +42,19 @@
   FIELD_RL (search_segidx, 0);
   FIELD_RL (prvsav_segidx, 0);
   FIELD_RL (file_size, 0);
-#ifdef IS_DECODER
   dat->byte = _obj->segidx_offset;
+#ifdef IS_DECODER
+  if (dat->byte > dat->size)
+    {
+      LOG_ERROR ("Invalid segidx_offset");
+      return DWG_ERR_VALUEOUTOFBOUNDS;
+    }
+  if ((size_t)(_obj->num_segidx * sizeof (Dwg_AcDs_Segment)) >
+      (size_t)(dat->size - dat->byte))
+    {
+      LOG_ERROR ("Invalid num_segidx");
+      return DWG_ERR_VALUEOUTOFBOUNDS;
+    }
   _obj->segments = calloc (_obj->num_segidx, sizeof (Dwg_AcDs_Segment));
 #endif
 #ifndef IS_JSON
@@ -301,4 +312,86 @@
   END_REPEAT (segments)
 #ifdef IS_FREE
   END_REPEAT (segidx)
+#endif
+
+#ifdef IS_DECODER
+  DECODER {
+    char *s, *e;
+    unsigned int i = 0;
+    char *acis_sab_data;
+    const BITCODE_B acis_empty = 0;
+    const BITCODE_BS version = 2;
+    BITCODE_BL num_acis_sab_data;
+    const unsigned int wanted = dwg->num_acis_sab_hdl;
+    // 414349532042696E61727946696C65 @10504/2 = 5252
+    const char start[] = "ACIS BinaryFile";
+    // 0E03456E640E026F660E0341534D0D0464617461 @13822/2 = 6911
+    const char end[] = "\016\003End\016\002of\016\003ASM\r\004data";
+    LOG_TRACE ("\nSearch for ACIS BinaryFile data:\n");
+    num_acis_sab_data = 0;
+    while ((s = memmem (&dat->chain[i], dat->size - i, start, strlen (start))))
+      {
+        unsigned j = s - (char*)&dat->chain[0]; // absolute_offset of found range
+        if ((e = memmem (s, dat->size - j, end, strlen (end))))
+          {
+            BITCODE_H hdl;
+            Dwg_Object *o;
+            Dwg_Entity_3DSOLID *sol;
+            unsigned size = e - s;
+            size += strlen (end);
+            LOG_TRACE ("acis_sab_data[%d]: found %s at %u, size %u\n",
+                       num_acis_sab_data, start, j, size);
+            if (!dwg->num_acis_sab_hdl)
+              {
+                LOG_ERROR ("Not enough %u 3DSOLIDs for the %u-th AcDs SAB data",
+                           wanted, num_acis_sab_data)
+                return DWG_ERR_INVALIDHANDLE;
+              }
+            hdl = SHIFT_HV (dwg, num_acis_sab_hdl, acis_sab_hdl);
+            o = dwg_resolve_handle (dwg, hdl->handleref.value);
+            LOG_TRACE ("%s.acis_sab_hdl[%u] = " FORMAT_REF "\n", o->name,
+                       dwg->num_acis_sab_hdl + 1, ARGS_REF (hdl))
+            if (!o || !dwg_obj_is_3dsolid (o))
+              {
+                LOG_ERROR ("Matching object %s " FORMAT_REF " not a 3DSOLID",
+                           o ? o->name : "", ARGS_REF (hdl))
+                free (hdl);
+                error |= DWG_ERR_INVALIDHANDLE;
+                continue;
+              }
+            sol = o->tio.entity->tio._3DSOLID;
+            // not NULL terminated
+            acis_sab_data = malloc (size);
+            memcpy (acis_sab_data, s, size);
+            num_acis_sab_data++;
+            dwg_dynapi_entity_set_value (sol, o->name, "acis_data", &acis_sab_data, 0);
+            dwg_dynapi_entity_set_value (sol, o->name, "sab_size", &size, 0);
+            dwg_dynapi_entity_set_value (sol, o->name, "version", &version, 0);
+            // FIXME only until we can write acds:
+            dwg_dynapi_entity_set_value (sol, o->name, "acis_empty", &acis_empty, 0);
+            // o->tio.entity->has_ds_data = 0; // maybe there is more, like the wires and silhuettes
+            LOG_TRACE ("%s.acis_data = %u " FORMAT_REF "\n", o->name, size, ARGS_REF (hdl))
+            free (hdl); // it is a non-global, free'able handleref. Created in common_entity_data.spec
+            i = j + size; // next offset to try
+          }
+        else
+          {
+            LOG_WARN ("No End-of-ASM-data found from %u - %lu for %d-th SAB data",
+                       j, dat->size, num_acis_sab_data);
+            i = j + 20;
+          }
+      }
+    if (wanted == num_acis_sab_data)
+      {
+        LOG_TRACE ("Matching number of %u 3DSOLID entities and AcDs SAB data\n",
+                   wanted)
+      }
+    else
+      {
+        LOG_WARN ("Not matching number of %u 3DSOLID entities and %u AcDs SAB data\n",
+                  wanted, num_acis_sab_data);
+        while (dwg->num_acis_sab_hdl > 0)
+          free (SHIFT_HV (dwg, num_acis_sab_hdl, acis_sab_hdl));
+      }
+  }
 #endif

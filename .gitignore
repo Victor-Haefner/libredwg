@@ -23,12 +23,17 @@ gcov.log
 /.build-*/
 /.build/
 /.fuzz-*/
+.vscode/
 /autom4te.cache/
+# will be a submodule
+/bindings/gambas/
 /compat_reports/
+/doc/acis/
 /doc/LibreDWG.t2p/
 /doc/latex/
 /doc/manual/
 /doc/refman/
+/src/infer-out/
 /test/issues/
 /test/patch/
 /test/temp/
@@ -36,8 +41,11 @@ gcov.log
 /test/test-data-20*/
 /test/test-data-r*/
 /test/test-data/
-# test-data symlink
+/test/test-old/
+# test-data symlinks
+/test-data
 /td
+/to
 
 # globs, in specific dirs
 /00*.patch
@@ -95,6 +103,7 @@ gcov.log
 /.upwork.sh
 /.version
 /.tarball-version
+/.vs.spec
 /.cproject
 /.project
 /.patches
@@ -122,6 +131,7 @@ gcov.log
 /test-dxf1.sh
 /unknown-*.log
 /unknown.lst
+/bindings/dwg.i.bak
 /bindings/perl/LibreDWG.pm
 /bindings/perl/Makefile.PL
 /bindings/perl/Makefile.old
@@ -203,3 +213,7 @@ gcov.log
 /src/compile_commands.json
 /src/config.h
 /src/stamp-h1
+/src/dwg_api.c.bak
+/src/free.h.bak
+/include/dwg.h.bak
+/include/dwg_api.h.bak

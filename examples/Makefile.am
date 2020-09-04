@@ -18,21 +18,24 @@
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 WARN_CFLAGS = @WARN_CFLAGS@
-AM_CFLAGS  = -I$(top_srcdir)/include -I$(top_srcdir)/src $(WARN_CFLAGS)
-LDADD      = $(top_builddir)/src/libredwg.la -lm
+AM_CFLAGS   = -I$(top_srcdir)/include -I$(top_srcdir)/src $(WARN_CFLAGS)
+LDADD       = $(top_builddir)/src/libredwg.la -lm
 
-check_PROGRAMS = load_dwg dwg2svg2
-EXTRA_PROGRAMS = unknown bd bits
+check_PROGRAMS   = load_dwg dwg2svg2 dwgfuzz
+EXTRA_PROGRAMS   = unknown bd bits
 
 load_dwg_SOURCES = load_dwg.c
 dwg2svg2_SOURCES = dwg2svg2.c
+dwgfuzz_SOURCES  = dwgfuzz.c
 unknown_SOURCES  = unknown.c
 # alldxf_0.inc alldxf_1.inc alldxf_2.inc alldwg.inc bd-unknown.inc
-unknown_LDADD  = $(top_builddir)/src/bits.lo $(top_builddir)/src/common.lo
-bd_SOURCE  = bd.c
-bd_LDADD  = $(top_builddir)/src/bits.lo
-bits_SOURCE  = bits.c
-bits_LDADD  = $(top_builddir)/src/bits.lo
+unknown_LDADD    = $(top_builddir)/src/libredwg.la \
+                   $(top_builddir)/src/bits.lo $(top_builddir)/src/common.lo
+bd_SOURCE        = bd.c
+bd_LDADD         = $(top_builddir)/src/libredwg.la $(top_builddir)/src/bits.lo -lm
+bits_SOURCE      = bits.c
+bits_LDADD       = $(top_builddir)/src/libredwg.la $(top_builddir)/src/bits.lo -lm
+
 all: $(check_PROGRAMS)
 
 .PHONY: check-syntax regen-unknown full-regen-unknown dsymutil gcov
@@ -45,8 +48,8 @@ regen-unknown:
 	-mv $(srcdir)/alldxf_1.inc alldxf_1.inc~ 2>/dev/null
 	-mv $(srcdir)/alldxf_2.inc alldxf_2.inc~ 2>/dev/null
 	(cd .. && $(PERL) $(abs_srcdir)/log_unknown_dxf.pl $(abs_srcdir)/alldwg.inc)
-	$(MAKE) -C .. unknown && \
-	  $(PERL) $(srcdir)/bd-unknown.pl | sort | uniq -w 96 >$(srcdir)/bd-unknown.inc
+	-$(MAKE) -C .. unknown
+	$(PERL) $(srcdir)/bd-unknown.pl | sort | uniq -w 96 >$(srcdir)/bd-unknown.inc
 
 full-regen-unknown:
 	echo Creating $(srcdir)/alldwg.inc will need a few minutes...
@@ -61,8 +64,8 @@ full-regen-unknown:
 	-mv $(srcdir)/alldxf_1.inc alldxf_1.inc~ 2>/dev/null
 	-mv $(srcdir)/alldxf_2.inc alldxf_2.inc~ 2>/dev/null
 	(cd .. && $(PERL) $(abs_srcdir)/log_unknown_dxf.pl $(abs_srcdir)/alldwg.inc)
-	$(MAKE) -C .. unknown && \
-	  $(PERL) $(srcdir)/bd-unknown.pl | sort | uniq -w 96 >$(srcdir)/bd-unknown.inc
+	-$(MAKE) -C .. unknown
+	$(PERL) $(srcdir)/bd-unknown.pl | sort | uniq -w 96 >$(srcdir)/bd-unknown.inc
 
 #ACAD_EVALUATION_GRAPH.pi: unknown
 #	$(MAKE) -C .. unknown
@@ -95,16 +98,21 @@ alldxf_unknowns = \
 	alldxf_ACDBASSOC2DCONSTRAINTGROUP.inc \
 	alldxf_ACDBASSOCACTION.inc \
 	alldxf_ACDBASSOCALIGNEDDIMACTIONBODY.inc \
+	alldxf_ACDBASSOCARRAYACTIONBODY.inc \
 	alldxf_ACDBASSOCDEPENDENCY.inc \
+	alldxf_ACDBASSOCEDGEACTIONPARAM.inc \
 	alldxf_ACDBASSOCEXTRUDEDSURFACEACTIONBODY.inc \
 	alldxf_ACDBASSOCGEOMDEPENDENCY.inc \
 	alldxf_ACDBASSOCLOFTEDSURFACEACTIONBODY.inc \
 	alldxf_ACDBASSOCNETWORK.inc \
 	alldxf_ACDBASSOCOSNAPPOINTREFACTIONPARAM.inc \
+	alldxf_ACDBASSOCPATHACTIONPARAM.inc \
 	alldxf_ACDBASSOCPERSSUBENTMANAGER.inc \
 	alldxf_ACDBASSOCPLANESURFACEACTIONBODY.inc \
 	alldxf_ACDBASSOCREVOLVEDSURFACEACTIONBODY.inc \
 	alldxf_ACDBASSOCSWEPTSURFACEACTIONBODY.inc \
+	alldxf_ACDBASSOCVALUEDEPENDENCY.inc \
+	alldxf_ACDBASSOCVARIABLE.inc \
 	alldxf_ACDBASSOCVERTEXACTIONPARAM.inc \
 	alldxf_ACDB_BLKREFOBJECTCONTEXTDATA_CLASS.inc \
 	alldxf_ACDBDETAILVIEWSTYLE.inc \
@@ -123,6 +131,10 @@ alldxf_unknowns = \
 	alldxf_ACSH_HISTORY_CLASS.inc \
 	alldxf_ACSH_SWEEP_CLASS.inc \
 	alldxf_ARC_DIMENSION.inc \
+	alldxf_ASSOCDIMDEPENDENCYBODY.inc \
+	alldxf_BLOCKGRIPLOCATIONCOMPONENT.inc \
+	alldxf_BLOCKVISIBILITYGRIP.inc \
+	alldxf_BLOCKVISIBILITYPARAMETER.inc \
 	alldxf_CELLSTYLEMAP.inc \
 	alldxf_CSACDOCUMENTOPTIONS.inc \
 	alldxf_DATALINK.inc \
@@ -135,15 +147,15 @@ alldxf_unknowns = \
 	alldxf_LAYOUTPRINTCONFIG.inc \
 	alldxf_LIGHT.inc \
 	alldxf_MATERIAL.inc \
-	alldxf_MESH.inc \
 	alldxf_MENTALRAYRENDERSETTINGS.inc \
+	alldxf_MESH.inc \
 	alldxf_MULTILEADER.inc \
 	alldxf_PLANESURFACE.inc \
 	alldxf_PLOTSETTINGS.inc \
 	alldxf_RAPIDRTRENDERSETTINGS.inc \
 	alldxf_REVOLVEDSURFACE.inc \
-	alldxf_SECTIONOBJECT.inc \
 	alldxf_SECTION_MANAGER.inc \
+	alldxf_SECTIONOBJECT.inc \
 	alldxf_SECTION_SETTINGS.inc \
 	alldxf_SUN.inc \
 	alldxf_SWEPTSURFACE.inc \
@@ -154,6 +166,8 @@ alldxf_unknowns = \
 EXTRA_DIST = unknown.h alldxf_0.inc alldxf_1.inc alldxf_2.inc alldwg.inc $(alldxf_unknowns)
 EXTRA_DIST += log_unknown_dxf.pl log_unknown.pl bd-unknown.pl unstable.pm
 EXTRA_DIST += load_dwg.py unknown.pi ACAD_EVALUATION_GRAPH.pi
+EXTRA_man1_MANS = $(srcdir)/dwgfuzz.1
+
 CLEANFILES = {example,sample}_2000.svg alldwg.inc~ \
 	     alldxf_0.inc~ alldxf_1.inc~ alldxf_2.inc~
 DISTCLEANFILES = alldxf_0.inc alldxf_1.inc alldxf_2.inc
@@ -165,6 +179,15 @@ MAINTAINERCLEANFILES  = *_flymake.[ch] *~ *.i
 
 dsymutil:
 	for e in $(check_PROGRAMS) $(EXTRA_PROGRAMS); do dsymutil $$e; done
+man: $(EXTRA_man1_MANS)
+
+if !HAVE_MINGW_CROSS
+# Note: These rules do not work cross-compiled
+regen-man: dwgfuzz
+	-for p in $(EXTRA_man1_MANS); do \
+	  base=`basename $$p .1`; \
+	  help2man -p $(PACKAGE_NAME) -o $$p ./$$base$(EXEEXT); done
+endif
 
 # emacs flymake-mode
 check-syntax:

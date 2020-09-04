@@ -358,7 +358,7 @@ main (int argc, char *argv[])
   if (error >= DWG_ERR_CRITICAL)
     goto free;
 
-  if (!dwg.header.version && !version)
+  if (!version)
     dat.version = dwg.header.version = dwg.header.from_version;
   if (minimal)
     dwg.opts |= DWG_OPTS_MINIMAL;

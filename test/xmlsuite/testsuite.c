@@ -212,14 +212,14 @@ add_helix (xmlNodePtr rootnode, const Dwg_Object *obj)
   dtostring = doubletochar (helix->turn_height);
   newXMLProp ("TurnHeight", dtostring);
 
-  dtostring = doubletochar (helix->num_turns);
+  dtostring = doubletochar (helix->turns);
   newXMLProp ("Turns", dtostring);
 
   dtostring = doubletochar (0);
   newXMLProp ("Twist", dtostring);
 
   dtostring = doubletochar (helix->constraint_type);
-  newXMLProp ("Constrain", dtostring); // typo!
+  newXMLProp ("Constrain", dtostring); // typo?
 
   dtostring = doubletochar (0);
   newXMLProp ("TurnSlope", dtostring);
@@ -648,7 +648,7 @@ add_text (xmlNodePtr rootnode, const Dwg_Object *obj)
   dtostring = doubletochar (text->height);
   newXMLProp ("Height", dtostring);
 
-  buf = spointprepare2 (text->insertion_pt.x, text->insertion_pt.y);
+  buf = spointprepare2 (text->ins_pt.x, text->ins_pt.y);
   newXMLProp ("InsertionPoint", buf);
 
   newXMLcProp ("TextString", (xmlChar *)text->text_value);
@@ -677,8 +677,8 @@ add_table (xmlNodePtr rootnode, const Dwg_Object *obj)
   newXMLcProp ("type", "IAcadTable");
   newXMLcProp ("desc", "IAcadTable: IAcadTable Interface");
 
-  buf = spointprepare (table->insertion_point.x, table->insertion_point.y,
-                       table->insertion_point.z);
+  buf = spointprepare (table->ins_pt.x, table->ins_pt.y,
+                       table->ins_pt.z);
   newXMLProp ("InsertionPoint", buf);
 
   dtostring = doubletochar (table->num_rows);

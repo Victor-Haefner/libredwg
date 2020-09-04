@@ -17,16 +17,16 @@ api_process (dwg_object *obj)
   Dwg_Version_Type dwg_version = obj->parent->header.version;
   dwg_obj_mlinestyle *mlinestyle = dwg_object_to_MLINESTYLE (obj);
 
-  CHK_ENTITY_UTF8TEXT_W_OBJ (mlinestyle, MLINESTYLE, name, name);
-  CHK_ENTITY_UTF8TEXT (mlinestyle, MLINESTYLE, description, description); // old API called desc
-  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, flag, BS, flag);
+  CHK_ENTITY_UTF8TEXT_W_OBJ (mlinestyle, MLINESTYLE, name);
+  CHK_ENTITY_UTF8TEXT (mlinestyle, MLINESTYLE, description); // old API called desc
+  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, flag, BS);
   CHK_ENTITY_MAX (mlinestyle, MLINESTYLE, flag, BS, 2047);
-  CHK_ENTITY_CMC (mlinestyle, MLINESTYLE, fill_color, fill_color);
-  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, start_angle, BD, start_angle);
+  CHK_ENTITY_CMC (mlinestyle, MLINESTYLE, fill_color);
+  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, start_angle, BD);
   CHK_ENTITY_MAX (mlinestyle, MLINESTYLE, start_angle, BD, MAX_ANGLE);
-  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, end_angle, BD, end_angle);
+  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, end_angle, BD);
   CHK_ENTITY_MAX (mlinestyle, MLINESTYLE, end_angle, BD, MAX_ANGLE);
-  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, num_lines, RCd, num_lines);
+  CHK_ENTITY_TYPE_W_OBJ (mlinestyle, MLINESTYLE, num_lines, RCd);
   
   if (!dwg_dynapi_entity_value (mlinestyle, "MLINESTYLE", "lines", &lines, NULL))
     fail ("MLINESTYLE.lines");
@@ -37,9 +37,9 @@ api_process (dwg_object *obj)
           CHK_SUBCLASS_TYPE (lines[i], MLINESTYLE_line, offset, BD);
           CHK_SUBCLASS_CMC (lines[i], MLINESTYLE_line, color);
           if (dwg_version < R_2018)
-            CHK_SUBCLASS_TYPE (lines[i], MLINESTYLE_line, lt.index, BSd)
+            CHK_SUBCLASS_TYPE (lines[i], MLINESTYLE_line, lt_index, BSd)
           else
-            CHK_SUBCLASS_H (lines[i], MLINESTYLE_line, lt.ltype);
+            CHK_SUBCLASS_H (lines[i], MLINESTYLE_line, lt_ltype);
         }
     }
 }

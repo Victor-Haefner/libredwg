@@ -13,12 +13,14 @@
 #ifndef SPEC_H
 #  define SPEC_H
 
+#  define _GNU_SOURCE
 #  include <string.h>
 #  include "decode.h"
 
 #  define DECODER if (0)
 #  define ENCODER if (0)
 #  define PRINT if (0)
+/* DECODER_ENCODER_OR_JSON really, or just NOT_DXF */
 #  define DECODER_OR_ENCODER if (0)
 #  define DXF_OR_PRINT if (0)
 #  define DXF if (0)
@@ -36,7 +38,7 @@
 #  define IF_IS_FREE 0
 
 #  ifndef ACTION
-#    error ACTION define missing: decode, encode, dxf, ...
+#    error ACTION define missing: decode, encode, dxf, json, ...
 #  endif
 #  define _DWG_FUNC_N(ACTION, name) dwg_##ACTION##_##name
 #  define DWG_FUNC_N(ACTION, name) _DWG_FUNC_N (ACTION, name)
@@ -113,6 +115,21 @@
 #endif
 #ifndef VALUE_3BD
 #  define VALUE_3BD(value, dxf)
+#endif
+#ifndef VALUE_2RD
+#  define VALUE_2RD(value, dxf)
+#endif
+#ifndef VALUE_2BD
+#  define VALUE_2BD(value, dxf) VALUE_2RD(value, dxf)
+#endif
+#ifndef VALUE_3RD
+#  define VALUE_3RD(value, dxf) VALUE_3BD (value, dxf)
+#endif
+#ifndef VALUE_BS
+#  define VALUE_BS(value, dxf)
+#endif
+#ifndef VALUE_BSd
+#  define VALUE_BSd(value, dxf)
 #endif
 #ifndef VALUE_BL
 #  define VALUE_BL(value, dxf)
@@ -195,7 +212,45 @@
         }                                                                     \
     }
 #endif
-
+#ifndef SUB_FIELD_VECTOR_N
+#  define SUB_FIELD_VECTOR_N(o, nam, type, size, dxf)                         \
+  if (size > 0 && _obj->o.nam != NULL)                                        \
+    {                                                                         \
+      BITCODE_BL _size = (BITCODE_BL)size;                                    \
+      for (vcount = 0; vcount < _size; vcount++)                              \
+        {                                                                     \
+          SUB_FIELD (o, nam[vcount], type, dxf);                              \
+        }                                                                     \
+    }
+#endif
+#ifndef FIELD_VECTOR_INL
+#  define FIELD_VECTOR_INL(o, nam, type, size, dxf)                           \
+  FIELD_VECTOR_N(o, nam, type, size, dxf)
+#endif
+#ifndef SUB_FIELD_VECTOR_INL
+#  define SUB_FIELD_VECTOR_INL(o, nam, type, size, dxf)                       \
+  SUB_FIELD_VECTOR_N(o, nam, type, size, dxf)
+#endif
+#ifndef SUB_FIELD_2RD_VECTOR
+#  define SUB_FIELD_2RD_VECTOR(o,name, size, dxf)                             \
+  if (_obj->o.size > 0)                                                       \
+    {                                                                         \
+      for (vcount = 0; vcount < (BITCODE_BL)_obj->o.size; vcount++)           \
+        {                                                                     \
+          SUB_FIELD_2RD (o,name[vcount], dxf);                                \
+        }                                                                     \
+    }
+#endif
+#ifndef SUB_FIELD_3BD_VECTOR
+#  define SUB_FIELD_3BD_VECTOR(o,name, size, dxf)                             \
+  if (_obj->o.size > 0)                                                       \
+    {                                                                         \
+      for (vcount = 0; vcount < (BITCODE_BL)_obj->o.size; vcount++)           \
+        {                                                                     \
+          SUB_FIELD_3BD (o,name[vcount], dxf);                                \
+        }                                                                     \
+    }
+#endif
 #ifndef SUB_FIELD_VECTOR_TYPESIZE
 #  define SUB_FIELD_VECTOR_TYPESIZE(o, nam, size, typesize, dxf)              \
   if (_obj->o.size && _obj->o.nam)                                            \
@@ -272,6 +327,49 @@
 #endif
 #ifndef FIELD_BINARY
 #  define FIELD_BINARY(name, len, dxf) FIELD_TF (name, len, dxf)
+#endif
+// force truecolor
+#ifndef FIELD_CMTC
+#  define FIELD_CMTC(name, dxf)                                               \
+    {                                                                         \
+      Dwg_Version_Type _ver = dat->version;                                   \
+      if (dat->version < R_2004)                                              \
+        dat->version = R_2004;                                                \
+      FIELD_CMC (name, dxf);                                                  \
+      dat->version = _ver;                                                    \
+    }
+#endif
+#ifndef SUB_FIELD_CMTC
+#  define SUB_FIELD_CMTC(o, name, dxf)                                        \
+    {                                                                         \
+      Dwg_Version_Type _ver = dat->version;                                   \
+      if (dat->version < R_2004)                                              \
+        dat->version = R_2004;                                                \
+      SUB_FIELD_CMC (o, name, dxf);                                           \
+      dat->version = _ver;                                                    \
+    }
+#endif
+// on DXF skip if 0
+#ifndef FIELD_BD0
+#  define FIELD_RD0(name, dxf) FIELD_RD (name, dxf)
+#  define FIELD_BD0(name, dxf) FIELD_BD (name, dxf)
+#  define FIELD_BD1(name, dxf) FIELD_BD (name, dxf)
+#  define FIELD_BL0(name, dxf) FIELD_BL (name, dxf)
+#  define SUB_FIELD_BL0(o, name, dxf) SUB_FIELD_BL (o, name, dxf)
+#  define FIELD_B0(name, dxf) FIELD_B (name, dxf)
+#  define FIELD_BS0(name, dxf) FIELD_BS (name, dxf)
+#  define FIELD_RC0(name, dxf) FIELD_RC (name, dxf)
+#  define FIELD_RS0(name, dxf) FIELD_RS (name, dxf)
+#  define FIELD_RL0(name, dxf) FIELD_RL (name, dxf)
+#  define FIELD_BT0(name, dxf) FIELD_BT (name, dxf)
+#  define FIELD_T0(name, dxf) FIELD_T (name, dxf)
+#  define FIELD_HANDLE0(name, code, dxf) FIELD_HANDLE (name, code, dxf)
+#  define SUB_FIELD_HANDLE0(o, name, code, dxf) SUB_FIELD_HANDLE (o, name, code, dxf)
+#endif
+
+// double to text
+#ifndef FIELD_D2T
+#  define FIELD_D2T(name, dxf) FIELD_TV (name, dxf)
 #endif
 #ifndef LOG_TRACE_TF
 #  define LOG_TRACE_TF(var, len)
@@ -420,60 +518,36 @@
     assert (obj->supertype == DWG_SUPERTYPE_OBJECT);                          \
     PRE (R_13)                                                                \
     {                                                                         \
-      FIELD_RC (flag, 70);                                                    \
+      if (strcmp (#acdbname, "Layer") == 0)                                   \
+        {                                                                     \
+        FIELD_CAST (flag, RC, RS, 70);                                        \
+        }                                                                     \
+      else                                                                    \
+        {                                                                     \
+          FIELD_RC (flag, 70);                                                \
+        }                                                                     \
       FIELD_TFv (name, 32, 2);                                                \
       FIELD_RS (used, 0);                                                     \
     }                                                                         \
     LATER_VERSIONS                                                            \
     {                                                                         \
       FIELD_T (name, 2);                                                      \
-      FIELD_B (xrefref, 0); /* 70 bit 7 */                                    \
-      PRE (R_2007)                                                            \
+      UNTIL (R_2004)                                                          \
       {                                                                       \
-        FIELD_BS (xrefindex_plus1, 0);                                        \
-        FIELD_B (xrefdep, 0);                                                 \
+        FIELD_B (is_xref_ref, 0);       /* always 1, 70 bit 6 */              \
+        FIELD_BS (is_xref_resolved, 0); /* 0 or 256 */                        \
+        FIELD_B (is_xref_dep, 0);       /* 70 bit 4 */                        \
       }                                                                       \
       LATER_VERSIONS                                                          \
       {                                                                       \
-        FIELD_B (xrefdep, 0);                                                 \
-        if (FIELD_VALUE (xrefdep))                                            \
-          {                                                                   \
-            FIELD_BS (xrefindex_plus1, 0);                                    \
-          }                                                                   \
+        FIELD_VALUE (is_xref_ref) = 1;                                        \
+        FIELD_BS (is_xref_resolved, 0); /* 0 or 256 */                        \
+        if (FIELD_VALUE (is_xref_resolved) == 256)                            \
+          FIELD_VALUE (is_xref_dep) = 1;                                      \
       }                                                                       \
-      FIELD_VALUE (flag) = FIELD_VALUE (flag) | FIELD_VALUE (xrefdep) << 4    \
-                           | FIELD_VALUE (xrefref) << 6;                      \
-    }                                                                         \
-    RESET_VER
-
-// Same as above. just Dwg_Object_LAYER::flags is short, not RC
-#  define LAYER_TABLE_FLAGS(acdbname)                                         \
-    assert (obj->fixedtype == DWG_TYPE_LAYER);                                \
-    PRE (R_13)                                                                \
-    {                                                                         \
-      FIELD_CAST (flag, RC, RS, 70);                                          \
-      FIELD_TFv (name, 32, 2);                                                \
-      FIELD_RS (used, 0);                                                     \
-    }                                                                         \
-    LATER_VERSIONS                                                            \
-    {                                                                         \
-      FIELD_T (name, 2);                                                      \
-      FIELD_B (xrefref, 0); /* 70 bit 7 */                                    \
-      PRE (R_2007)                                                            \
-      {                                                                       \
-        FIELD_BS (xrefindex_plus1, 0);                                        \
-        FIELD_B (xrefdep, 0);                                                 \
-      }                                                                       \
-      LATER_VERSIONS                                                          \
-      {                                                                       \
-        FIELD_B (xrefdep, 0);                                                 \
-        if (FIELD_VALUE (xrefdep))                                            \
-          {                                                                   \
-            FIELD_BS (xrefindex_plus1, 0);                                    \
-          }                                                                   \
-      }                                                                       \
-      FIELD_VALUE (flag) = FIELD_VALUE (flag) | FIELD_VALUE (xrefdep) << 4    \
-                           | FIELD_VALUE (xrefref) << 6;                      \
+      FIELD_HANDLE (xref, 5, 0); /* NULLHDL without is_xref_dep */            \
+      FIELD_VALUE (flag) |= FIELD_VALUE (is_xref_dep) << 4                    \
+                          | FIELD_VALUE (is_xref_ref) << 6;                   \
     }                                                                         \
     RESET_VER
 #endif
@@ -498,7 +572,7 @@
 // unchecked with constant times
 #ifndef REPEAT
 #  define REPEAT_CN(times, name, type)                                        \
-    if (_obj->name)                                                           \
+    if (_obj->name != NULL)                                                   \
       for (rcount1 = 0; rcount1 < (BITCODE_BL)times; rcount1++)
 // checked with constant times
 #  define REPEAT_N(times, name, type)                                         \
@@ -508,7 +582,7 @@
                    (long)times);                                              \
         return DWG_ERR_VALUEOUTOFBOUNDS;                                      \
       }                                                                       \
-    if (_obj->name)                                                           \
+    if (_obj->name != NULL)                                                   \
       for (rcount1 = 0; rcount1 < (BITCODE_BL)times; rcount1++)
 
 // checked with var. times
@@ -519,13 +593,13 @@
                    (long)_obj->times);                                        \
         return DWG_ERR_VALUEOUTOFBOUNDS;                                      \
       }                                                                       \
-    if (_obj->times && _obj->name)                                            \
+    if (_obj->times > 0 && _obj->name != NULL)                                \
       for (rcount##idx = 0; rcount##idx < (BITCODE_BL)_obj->times;            \
            rcount##idx++)
 // unchecked with var. times
 #  ifndef _REPEAT_C
 #    define _REPEAT_C(times, name, type, idx)                                 \
-      if (_obj->times && _obj->name)                                          \
+      if (_obj->times > 0 && _obj->name != NULL)                              \
         for (rcount##idx = 0; rcount##idx < (BITCODE_BL)_obj->times;          \
              rcount##idx++)
 #  endif
@@ -541,14 +615,14 @@
 // unchecked with constant times
 #ifndef _REPEAT_CN
 #  define _REPEAT_CN(times, name, type, idx)                                  \
-    if (_obj->name)                                                           \
+    if (_obj->name != NULL)                                                   \
       for (rcount##idx = 0; rcount##idx < (BITCODE_BL)times; rcount##idx++)
 #endif
 // not allocating versions:
 // unchecked
 #ifndef _REPEAT_CNF
 #  define _REPEAT_CNF(times, name, type, idx)                                 \
-    if (_obj->name)                                                           \
+    if (_obj->name != NULL)                                                   \
       for (rcount##idx = 0; rcount##idx < (BITCODE_BL)times; rcount##idx++)
 #endif
 #ifndef _REPEAT_NF
@@ -560,6 +634,37 @@
                    (long)times);                                              \
         return DWG_ERR_VALUEOUTOFBOUNDS;                                      \
       }                                                                       \
-    if (_obj->name)                                                           \
+    if (_obj->name != NULL)                                                   \
       for (rcount##idx = 0; rcount##idx < (BITCODE_BL)times; rcount##idx++)
 #endif
+
+#define DWG_SUBCLASS_DECL(parenttype, subtype)                                \
+  static int DWG_PRIVATE_N (ACTION, parenttype##_##subtype)                   \
+    (Dwg_Object_##parenttype *restrict _obj, Bit_Chain *dat,                  \
+     Bit_Chain *hdl_dat,                                                      \
+     Bit_Chain *str_dat, Dwg_Object *restrict obj)                            \
+
+#define DWG_SUBCLASS(parenttype, subtype)                                     \
+  static int DWG_PRIVATE_N (ACTION, parenttype##_##subtype)                   \
+    (Dwg_Object_##parenttype *restrict _obj, Bit_Chain *dat,                  \
+     Bit_Chain *hdl_dat,                                                      \
+     Bit_Chain *str_dat, Dwg_Object *restrict obj)                            \
+  {                                                                           \
+    BITCODE_BL vcount, rcount3, rcount4;                                      \
+    Dwg_Data *dwg = obj->parent;                                              \
+    int error = 0;                                                            \
+    subtype##_fields;                                                         \
+    return error;                                                             \
+  }
+
+#define CALL_SUBCLASS(_xobj, parenttype, subtype)                             \
+  error |= DWG_PRIVATE_N (ACTION, parenttype##_##subtype) (_xobj, dat,        \
+               hdl_dat, str_dat, (Dwg_Object *)obj)
+// if the name is compile-time known
+#define CALL_ENTITY(name, xobj)                                               \
+  error |= DWG_PRIVATE_N (ACTION, name) (dat, hdl_dat, str_dat,               \
+                                             (Dwg_Object *)xobj)
+// TODO: dispatch on the type
+#define CALL_SUBENT(hdl, dxf)
+//error |= DWG_PRIVATE_N (ACTION, xobj->fixedtype) (dat, hdl_dat, str_dat, (Dwg_Object *)xobj)
+#define CALL_SUBCURVE(hdl, curvetype)

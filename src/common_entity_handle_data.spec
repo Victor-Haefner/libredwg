@@ -18,10 +18,10 @@
         //assert(ent->entmode == 3); /* does not exist */
         VALUE_HANDLE (ent->ownerhandle, ownerhandle, 5, 330);
       } else if (ent->entmode == 1) {
-        VALUE_HANDLE (obj->parent->header_vars.BLOCK_RECORD_PSPACE, BLOCK_RECORD_PSPACE, 5, 330);
+        VALUE_HANDLE (dwg->header_vars.BLOCK_RECORD_PSPACE, BLOCK_RECORD_PSPACE, 5, 330);
       } else {
         //assert(ent->entmode == 2);
-        VALUE_HANDLE (obj->parent->header_vars.BLOCK_RECORD_MSPACE, BLOCK_RECORD_MSPACE, 5, 330);
+        VALUE_HANDLE (dwg->header_vars.BLOCK_RECORD_MSPACE, BLOCK_RECORD_MSPACE, 5, 330);
       }
     }
 #else
@@ -48,13 +48,13 @@
   VERSIONS (R_13, R_14)
     {
       FIELD_HANDLE (layer, 5, 8);
-      ENCODER {
-        if (dat->from_version == R_2000)
-          FIELD_VALUE (isbylayerlt) = FIELD_VALUE (ltype_flags) < 3 ? 1 : 0;
-      }
+#ifdef IS_ENCODER
+      if (dat->from_version == R_2000)
+        FIELD_VALUE (isbylayerlt) = FIELD_VALUE (ltype_flags) < 3 ? 1 : 0;
+#endif
 #ifdef IS_DXF
       switch (FIELD_VALUE (ltype_flags)) {
-      case 0: VALUE_TV ("ByLayer", 6); break;
+      case 0: break; //VALUE_TV ("ByLayer", 6); break;
       case 1: VALUE_TV ("ByBlock", 6); break;
       case 2: VALUE_TV ("Continuous", 6); break;
       default: break;
@@ -80,7 +80,7 @@
 
 #ifdef IS_DXF
       switch (FIELD_VALUE (ltype_flags)) {
-      case 0: VALUE_TV ("ByLayer", 6); break;
+      case 0: break; //VALUE_TV ("ByLayer", 6); break;
       case 1: VALUE_TV ("ByBlock", 6); break;
       case 2: VALUE_TV ("Continuous", 6); break;
       default: break;

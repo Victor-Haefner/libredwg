@@ -30,10 +30,12 @@
 
 #define REFS_PER_REALLOC 128
 
-int dwg_decode (Bit_Chain *restrict dat, Dwg_Data *restrict dwg);
+EXPORT int dwg_decode (Bit_Chain *restrict dat, Dwg_Data *restrict dwg);
 int dwg_decode_unknown (Bit_Chain *restrict dat, Dwg_Object *restrict obj);
 Dwg_Object_Ref *dwg_find_objectref (const Dwg_Data *restrict dwg,
                                     const Dwg_Object *restrict obj);
+// reused with the importers
+void decode_BACKGROUND_type (const Dwg_Object *obj);
 
 /*------------------------------------------------------------------------------
  * Functions reused with decode_r2007
@@ -64,6 +66,7 @@ void dwg_free_xdata_resbuf (Dwg_Resbuf *restrict rbuf);
 void dwg_resolve_objectrefs_silent (Dwg_Data *restrict dwg);
 uint32_t dwg_section_page_checksum (const uint32_t seed, Bit_Chain *restrict dat,
                                     int32_t size);
+unsigned int section_max_decomp_size (const Dwg_Data *dwg, const Dwg_Section_Type id);
 
 /* reused with out_dxf */
 char *dwg_dim_blockname (Dwg_Data *restrict dwg,
@@ -73,6 +76,7 @@ int dwg_validate_INSERT (Dwg_Object *restrict obj);
 int dwg_validate_POLYLINE (Dwg_Object *restrict obj);
 /* reused with many */
 int dwg_fixup_BLOCKS_entities (Dwg_Data *restrict dwg);
+void dxf_3dsolid_revisionguid (Dwg_Entity_3DSOLID *_obj);
 
 /* from decode_r2007.c */
 int obj_string_stream (Bit_Chain *dat, Dwg_Object *restrict obj,
@@ -88,8 +92,10 @@ void section_string_stream (Bit_Chain *restrict dat, BITCODE_RL bitsize,
                             Bit_Chain *restrict str);
 
 /* from dwg.c */
-int dat_read_file (Bit_Chain *restrict dat, FILE *restrict fp,
-                   const char *restrict filename);
-int dat_read_stream (Bit_Chain *restrict dat, FILE *restrict fp);
+// from dat.fh
+EXPORT int dat_read_size (Bit_Chain *restrict dat);
+EXPORT int dat_read_file (Bit_Chain *restrict dat, FILE *restrict fp,
+                          const char *restrict filename);
+EXPORT int dat_read_stream (Bit_Chain *restrict dat, FILE *restrict fp);
 
 #endif
