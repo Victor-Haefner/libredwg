@@ -26,6 +26,8 @@
  *       common_entity_data: ltype, ltype_scale.
  *       PLINE: widths, bulges.
  */
+ 
+#define _GNU_SOURCE
 
 #include "../src/config.h"
 #include <stdio.h>
